@@ -1,6 +1,6 @@
 # NetHoe
 
-**Browser-based VRM avatar companion with AI chat, text-to-speech, speech-to-text, and real-time 3D animations.**
+**Browser-based VRM avatar companion with AI chat, text-to-speech, speech-to-text, semantic memory, and real-time 3D animations.**
 
 NetHoe runs entirely in your browser. Load any VRM model, connect a local or cloud LLM, and have a conversation with your 3D companion complete with lip sync, idle animations, and post-processing effects.
 
@@ -15,14 +15,21 @@ NetHoe runs entirely in your browser. Load any VRM model, connect a local or clo
 - Customizable system prompts via character personas (Tsundere, Kuudere, Genki, etc.)
 - Per-request Ollama tuning: `num_ctx`, `flash_attn`, `kv_cache_type`
 
+### Semantic Memory
+- **Embedding-based context** using MiniLM-L6-v2 (23MB, 384 dimensions, runs in browser)
+- Three modes: **Auto-Prune**, **Auto-Summarize**, **Hybrid**
+- Cosine similarity search injects relevant past messages into LLM context
+- Optional summarization LLM compresses older messages
+- All embeddings stored locally in IndexedDB
+
 ### Text-to-Speech
-- **Kokoro** (Local) &mdash; 28 voices via WebGPU/WASM, no server or API key needed
-- **Fish Audio** (Cloud) &mdash; High-quality TTS with custom voice model creation, public model search, and voice cloning
-- **Qwen3 Voice Clone** (Cloud) &mdash; Clone any voice from a reference audio sample via WaveSpeed
+- **Kokoro** (Local) — 28 voices via WebGPU/WASM, no server or API key needed
+- **Fish Audio** (Cloud) — High-quality streaming TTS with voice cloning, real-time WebSocket streaming
 
 ### Speech-to-Text
-- **Whisper** via Web Worker &mdash; runs locally in your browser
+- **Whisper** via Web Worker — runs locally in your browser
 - Push-to-talk mic button with auto-send option
+- Mic permission pre-check with clear feedback
 - Model downloads on first use (~40MB)
 
 ### 3D Avatar
@@ -34,10 +41,19 @@ NetHoe runs entirely in your browser. Load any VRM model, connect a local or clo
 - Real-time lip sync driven by TTS audio amplitude
 
 ### Persistence
-- All settings auto-saved to IndexedDB (API keys, visual settings, selected model, character, etc.)
+- All settings auto-saved to IndexedDB (API keys, visual settings, models, voices, memory config, etc.)
 - VRM model files stored in IndexedDB for custom uploads
 - Conversation history preserved across reloads
-- Saved voice references for Fish Audio and WaveSpeed
+- Models (Kokoro, Whisper, embeddings) auto-load on startup when previously enabled
+
+### Waifu Manager
+- Dedicated settings page (`/manager`) for managing everything
+- API keys and endpoints per provider
+- LLM model defaults per provider
+- Fish Audio voice browser with search and latency config
+- Memory system configuration (mode, thresholds, summarization LLM)
+- Conversation browser with export (JSON/TXT) and delete
+- Data management: export all, import, clear history, factory reset
 
 ---
 
@@ -49,7 +65,7 @@ You need **one** of the following for AI chat:
 
 | Provider | Cost | Setup |
 |----------|------|-------|
-| [Ollama](https://ollama.ai) | Free | Install, pull a model, run with CORS enabled |
+| [Ollama](https://ollama.ai) | Free | Install, pull a model, enable network access |
 | [LM Studio](https://lmstudio.ai) | Free | Install, download a model, start the server |
 | [OpenRouter](https://openrouter.ai) | Pay per token | Get an API key, 100+ models available |
 | [OpenAI](https://platform.openai.com) | Pay per token | Get an API key |
@@ -57,32 +73,32 @@ You need **one** of the following for AI chat:
 ### Install and Run
 
 ```bash
-git clone https://github.com/user/NetHoe.git
-cd NetHoe
+git clone https://github.com/xsploit/webwaifu3.git
+cd webwaifu3
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+Opens on `https://localhost:5173` (HTTPS via `@vitejs/plugin-basic-ssl` for HTTP/2 streaming support).
 
-### Ollama CORS Setup
+### Ollama Setup
 
-Ollama blocks cross-origin requests by default. You **must** allow your dev server origin:
+Ollama needs two things to work with NetHoe:
+
+**1. Allow network access** — In Ollama's system tray settings, enable **"Allow through network"**.
+
+**2. Set allowed origins** — The browser needs CORS permission to reach Ollama.
 
 **Mac/Linux:**
 ```bash
 OLLAMA_ORIGINS=* ollama serve
 ```
 
-**Windows (PowerShell):**
-```powershell
-$env:OLLAMA_ORIGINS="*"; ollama serve
-```
-
-**Windows (CMD):**
-```cmd
-set OLLAMA_ORIGINS=* && ollama serve
-```
+**Windows** — Set `OLLAMA_ORIGINS` as a system environment variable:
+1. Open Start > search "Environment Variables" > Edit system environment variables
+2. Under System Variables, click New
+3. Variable name: `OLLAMA_ORIGINS`, Value: `*`
+4. Restart Ollama
 
 ### LM Studio Setup
 
@@ -96,10 +112,10 @@ set OLLAMA_ORIGINS=* && ollama serve
 ## Security Model
 
 ### API Keys
-All API keys are stored **locally** in your browser's IndexedDB. They are only sent directly to their respective provider APIs (OpenAI, OpenRouter, Fish Audio, WaveSpeed) and never to any third-party server.
+All API keys are stored **locally** in your browser's IndexedDB. They are only sent directly to their respective provider APIs (OpenAI, OpenRouter, Fish Audio) and never to any third-party server.
 
-### Cloud TTS Proxies
-Fish Audio and WaveSpeed don't support browser CORS, so TTS requests are proxied through SvelteKit server routes (`/api/tts/fish` and `/api/tts/qwen`). When self-hosting, your API keys pass through your own server. On Vercel, they pass through Vercel's serverless functions.
+### Cloud TTS Proxy
+Fish Audio doesn't support browser CORS, so TTS requests are proxied through a SvelteKit server route (`/api/tts/fish-stream`). When self-hosting, your API key passes through your own server. On Vercel, it passes through Vercel's serverless functions.
 
 ### Client-Side Risks
 Since API keys are stored in the browser, they are subject to standard client-side risks (XSS, malicious browser extensions, local malware). Use dedicated API keys with spending limits where possible.
@@ -111,34 +127,33 @@ Since API keys are stored in the browser, they are subject to standard client-si
 ```
 SvelteKit 2 + Svelte 5 (runes)
 ├── Three.js + @pixiv/three-vrm    3D rendering
-├── Vercel AI SDK (streamText)      LLM integration
-├── Kokoro TTS (Web Worker)         Local text-to-speech
+├── Vercel AI SDK (Responses API)   LLM integration (all 4 providers)
+├── Kokoro TTS (Web Worker)         Local text-to-speech (28 voices)
 ├── Whisper STT (Web Worker)        Local speech-to-text
-├── Fish Audio SDK                  Cloud TTS + voice cloning
-├── WaveSpeed SDK                   Qwen3 voice cloning
-├── IndexedDB                       Settings + file persistence
-└── Vite 7 + @tailwindcss/vite      Build tooling
+├── Fish Audio SDK                  Cloud TTS + WebSocket streaming
+├── MiniLM-L6-v2 (Web Worker)      Semantic memory embeddings
+├── IndexedDB (v2)                  Settings, conversations, embeddings, summaries
+└── Vite 7 + @tailwindcss/vite     Build tooling
 ```
-
-### Optional: Qwen3-TTS streaming (local Python server)
-
-The repo includes a clone of [Qwen3-TTS-streaming](https://github.com/dffdeeq/Qwen3-TTS-streaming) in the subdirectory `Qwen3-TTS-streaming/` for local streaming TTS (Python, CUDA). To set it up on Windows, see **`Qwen3-TTS-streaming/SETUP-Windows.md`** and run `setup-windows.ps1` after installing SOX and creating the conda env. The NetHoe app itself does not depend on this; it is optional for running Qwen3-TTS locally with streaming.
 
 ### Directory Structure
 
 ```
 src/
 ├── lib/
-│   ├── components/       UI (VrmCanvas, ChatBar, SettingsPanel, SplashModal)
+│   ├── components/       UI (VrmCanvas, ChatBar, SettingsPanel, SplashModal, tabs/)
+│   ├── components/manager/  Waifu Manager sections (API keys, models, voices, memory, data)
 │   ├── llm/              LLM client (Ollama, LM Studio, OpenAI, OpenRouter)
-│   ├── tts/              TTS manager, Kokoro worker, phonemizer
+│   ├── tts/              TTS manager, Kokoro worker
 │   ├── stt/              Whisper STT recorder + worker
+│   ├── memory/           Embedding worker + MemoryManager (semantic search, summarization)
 │   ├── vrm/              Scene, animation, sequencer, loader, lipsync, postprocessing
 │   ├── stores/           Svelte 5 reactive state (app.svelte.ts)
-│   └── storage/          IndexedDB persistence layer
+│   └── storage/          IndexedDB persistence layer (DB v2)
 ├── routes/
 │   ├── +page.svelte      Main app page
-│   └── api/tts/          Server-side TTS proxies (Fish Audio, WaveSpeed)
+│   ├── manager/          Waifu Manager settings page
+│   └── api/tts/          Server-side TTS proxy (Fish Audio streaming)
 └── app.css               Global styles
 ```
 
@@ -146,9 +161,10 @@ src/
 
 ## Performance Notes
 
-- Client bundle is ~2.7MB (Three.js + VRM + AI SDK). Expected for a 3D web app.
+- Client bundle is ~2.3MB (Three.js + VRM + AI SDK). Expected for a 3D web app.
 - Kokoro TTS model downloads ~86MB on first use (cached by the browser).
 - Whisper STT model downloads ~40MB on first use.
+- MiniLM-L6-v2 embedding model downloads ~23MB on first use.
 - WebGPU is preferred for Kokoro TTS; falls back to WASM if unavailable.
 
 ---
@@ -157,16 +173,11 @@ src/
 
 ### Vercel (Recommended)
 
-Push to GitHub and import on [vercel.com](https://vercel.com). Auto-detected as SvelteKit. Serverless functions handle TTS proxies with 60s timeout on the free tier.
+Push to GitHub and import on [vercel.com](https://vercel.com). Auto-detected as SvelteKit with `@sveltejs/adapter-vercel`. Serverless functions handle the Fish Audio TTS proxy.
 
-### Netlify
+### Self-Hosting
 
-Switch adapter in `svelte.config.js`:
-```js
-import adapter from '@sveltejs/adapter-netlify';
-```
-
-Note: Netlify free tier has a 10s function timeout which may be too short for TTS proxy routes.
+Use any Node.js hosting. Switch adapter in `svelte.config.js` as needed (e.g., `adapter-node` for a standalone server).
 
 ---
 
@@ -174,11 +185,13 @@ Note: Netlify free tier has a 10s function timeout which may be too short for TT
 
 - **Frontend:** SvelteKit 2, Svelte 5, TypeScript
 - **3D:** Three.js, @pixiv/three-vrm
-- **AI:** Vercel AI SDK, OpenAI-compatible providers
-- **TTS:** Kokoro (local), Fish Audio SDK, WaveSpeed SDK
-- **STT:** Hugging Face Transformers (Whisper)
+- **AI:** Vercel AI SDK (Responses API), OpenAI-compatible providers
+- **TTS:** Kokoro (local WebGPU/WASM), Fish Audio (cloud WebSocket streaming)
+- **STT:** Hugging Face Transformers (Whisper, local)
+- **Memory:** MiniLM-L6-v2 embeddings (local), cosine similarity search
+- **Storage:** IndexedDB (settings, conversations, embeddings, summaries)
 - **Build:** Vite 7, @tailwindcss/vite
-- **Hosting:** Vercel (serverless functions for TTS proxies)
+- **Hosting:** Vercel (serverless functions for TTS proxy)
 
 ---
 
