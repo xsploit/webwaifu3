@@ -169,13 +169,13 @@
 					if (state.llm.kvCacheType !== undefined) llmSettings.kvCacheType = state.llm.kvCacheType;
 				}
 
-				// Apply per-provider defaults from manager page
+				// Apply per-provider defaults from manager page (manager is canonical for API keys)
 				const providerDefaults = await storage.getSetting('manager.providerDefaults', {});
 				if (providerDefaults[llmSettings.provider]) {
 					const d = providerDefaults[llmSettings.provider];
-					if (!llmSettings.model && d.model) llmSettings.model = d.model;
-					if (!llmSettings.apiKey && d.apiKey) llmSettings.apiKey = d.apiKey;
-					if (!llmSettings.endpoint && d.endpoint) llmSettings.endpoint = d.endpoint;
+					if (d.apiKey) llmSettings.apiKey = d.apiKey;
+					if (d.endpoint) llmSettings.endpoint = d.endpoint;
+					if (d.model) llmSettings.model = d.model;
 				}
 				if (state.tts) {
 					ttsSettings.provider = state.tts.provider;
@@ -629,7 +629,22 @@
 
 		// Debounce: wait 500ms after last change before writing to IndexedDB
 		if (saveTimer) clearTimeout(saveTimer);
-		saveTimer = setTimeout(() => storage.saveAppState(snapshot), 500);
+		saveTimer = setTimeout(async () => {
+			await storage.saveAppState(snapshot);
+
+			// Sync active LLM settings back to manager.providerDefaults
+			// so Manager page always shows the correct keys per provider
+			try {
+				const defaults = await storage.getSetting('manager.providerDefaults', {});
+				const provider = snapshot.llm.provider;
+				defaults[provider] = {
+					model: snapshot.llm.model || defaults[provider]?.model || '',
+					apiKey: snapshot.llm.apiKey || defaults[provider]?.apiKey || '',
+					endpoint: snapshot.llm.endpoint || defaults[provider]?.endpoint || ''
+				};
+				await storage.setSetting('manager.providerDefaults', defaults);
+			} catch { /* non-critical */ }
+		}, 500);
 	});
 
 	function handleClickOutside() {

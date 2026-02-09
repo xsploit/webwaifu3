@@ -97,6 +97,16 @@
 		try {
 			// Strip Svelte 5 reactivity proxies before writing to IndexedDB
 			await storage.setSetting('manager.providerDefaults', $state.snapshot(providerDefaults));
+
+			// Sync active provider's key/endpoint/model to llm.* so Main page picks it up
+			const activeProvider = await storage.getSetting('llm.provider', 'ollama');
+			const activeDefaults = providerDefaults[activeProvider];
+			if (activeDefaults) {
+				if (activeDefaults.apiKey) await storage.setSetting('llm.apiKey', activeDefaults.apiKey);
+				if (activeDefaults.endpoint) await storage.setSetting('llm.endpoint', activeDefaults.endpoint);
+				if (activeDefaults.model) await storage.setSetting('llm.model', activeDefaults.model);
+			}
+
 			await storage.setSetting('tts.fishApiKey', fishApiKey);
 			await storage.setSetting('tts.fishSavedVoices', $state.snapshot(fishSavedVoices));
 			await storage.setSetting('tts.fishModel', fishModel);

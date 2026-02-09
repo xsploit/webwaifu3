@@ -3,10 +3,19 @@
 	import Toggle from '../ui/Toggle.svelte';
 	import { getLlmSettings, getModelList, getCharacterState, toast } from '../../stores/app.svelte.js';
 	import { LlmClient, type LlmProvider } from '../../llm/client.js';
+	import { getStorageManager } from '../../storage/index.js';
 
 	const llm = getLlmSettings();
 	const models = getModelList();
 	const chars = getCharacterState();
+	const storage = getStorageManager();
+
+	const DEFAULT_ENDPOINTS: Record<string, string> = {
+		ollama: 'http://localhost:11434',
+		lmstudio: 'http://localhost:1234',
+		openai: 'https://api.openai.com/v1/responses',
+		openrouter: 'https://openrouter.ai/api/v1/responses'
+	};
 
 	const providers: { value: LlmProvider; label: string }[] = [
 		{ value: 'ollama', label: 'Ollama (Local - FREE!)' },
@@ -38,10 +47,23 @@
 		}
 	}
 
-	function onProviderChange(e: Event) {
-		llm.provider = (e.target as HTMLSelectElement).value as LlmProvider;
+	async function onProviderChange(e: Event) {
+		const newProvider = (e.target as HTMLSelectElement).value as LlmProvider;
+		llm.provider = newProvider;
 		models.models = [];
-		llm.model = '';
+
+		// Load saved API key, endpoint, model for this provider from manager defaults
+		try {
+			const defaults = await storage.getSetting('manager.providerDefaults', {});
+			const d = defaults[newProvider];
+			llm.apiKey = d?.apiKey || '';
+			llm.endpoint = d?.endpoint || DEFAULT_ENDPOINTS[newProvider] || '';
+			llm.model = d?.model || '';
+		} catch {
+			llm.apiKey = '';
+			llm.endpoint = DEFAULT_ENDPOINTS[newProvider] || '';
+			llm.model = '';
+		}
 	}
 </script>
 

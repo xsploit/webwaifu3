@@ -27,3 +27,4 @@ vite.config.ts.timestamp-*
 
 # Claude Code
 .claude
+src/lib/vendor/edge-tts-universal.js
