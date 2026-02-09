@@ -1,0 +1,201 @@
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { FishAudioClient, RealtimeEvents } from 'fish-audio';
+import type { Backends } from 'fish-audio';
+
+export const POST: RequestHandler = async ({ request }) => {
+	const contentType = request.headers.get('content-type') || '';
+
+	// JSON mode: full text in body (used by speak())
+	if (contentType.includes('application/json')) {
+		return handleFullText(request);
+	}
+
+	// Streaming mode: text chunks arrive via request body stream (used by enqueueStreamChunk)
+	// Config is in headers since body is the text stream
+	return handleStreamingText(request);
+};
+
+/** Full text mode — receives all text at once, returns complete audio */
+async function handleFullText(request: Request): Promise<Response> {
+	const body = await request.json();
+	const { text, apiKey, referenceId, model, format, latency } = body;
+
+	if (!text || !apiKey) {
+		return json({ error: 'text and apiKey required' }, { status: 400 });
+	}
+
+	const client = new FishAudioClient({ apiKey });
+	const sentences = splitIntoSentences(text);
+
+	async function* textGenerator() {
+		for (const sentence of sentences) {
+			yield sentence + ' ';
+		}
+	}
+
+	return runWebSocketSession(client, textGenerator(), {
+		referenceId,
+		model,
+		format,
+		latency
+	});
+}
+
+/** Streaming mode — reads text chunks from request body as they arrive */
+async function handleStreamingText(request: Request): Promise<Response> {
+	const apiKey = request.headers.get('x-fish-api-key');
+	const referenceId = request.headers.get('x-fish-reference-id') || undefined;
+	const model = request.headers.get('x-fish-model') || 's1';
+	const format = request.headers.get('x-fish-format') || 'mp3';
+	const latency = request.headers.get('x-fish-latency') || 'balanced';
+
+	if (!apiKey) {
+		return json({ error: 'x-fish-api-key header required' }, { status: 400 });
+	}
+
+	if (!request.body) {
+		return json({ error: 'Request body stream required' }, { status: 400 });
+	}
+
+	const client = new FishAudioClient({ apiKey });
+
+	// Async generator that reads text chunks from the request body stream
+	async function* textFromBody() {
+		const reader = request.body!.getReader();
+		const decoder = new TextDecoder();
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				const text = decoder.decode(value, { stream: true });
+				if (text) yield text;
+			}
+			// Flush any remaining bytes in the decoder
+			const remaining = decoder.decode();
+			if (remaining) yield remaining;
+		} finally {
+			reader.releaseLock();
+		}
+	}
+
+	return runWebSocketSession(client, textFromBody(), {
+		referenceId,
+		model,
+		format,
+		latency
+	});
+}
+
+interface SessionConfig {
+	referenceId?: string;
+	model?: string;
+	format?: string;
+	latency?: string;
+}
+
+/** Shared: opens one Fish WebSocket session, collects audio, returns response */
+async function runWebSocketSession(
+	client: FishAudioClient,
+	textStream: AsyncGenerator<string>,
+	config: SessionConfig
+): Promise<Response> {
+	const ttsRequest = {
+		text: '', // content flows via text stream
+		reference_id: config.referenceId || undefined,
+		format: (config.format || 'mp3') as 'wav' | 'pcm' | 'mp3' | 'opus',
+		mp3_bitrate: 128 as const,
+		chunk_length: 200,
+		normalize: true,
+		latency: (config.latency || 'balanced') as 'normal' | 'balanced',
+		prosody: { speed: 1.0, volume: 0.0 }
+	};
+
+	try {
+		const connection = await client.textToSpeech.convertRealtime(
+			ttsRequest,
+			textStream,
+			(config.model || 's1') as Backends
+		);
+
+		const audioChunks: Buffer[] = [];
+
+		await new Promise<void>((resolve, reject) => {
+			let resolved = false;
+
+			connection.on(RealtimeEvents.AUDIO_CHUNK, (data: unknown) => {
+				if (data instanceof Uint8Array || Buffer.isBuffer(data)) {
+					audioChunks.push(Buffer.from(data));
+				}
+			});
+
+			connection.on(RealtimeEvents.ERROR, (err: unknown) => {
+				if (!resolved) {
+					resolved = true;
+					reject(err instanceof Error ? err : new Error(String(err)));
+				}
+			});
+
+			connection.on(RealtimeEvents.CLOSE, () => {
+				if (!resolved) {
+					resolved = true;
+					resolve();
+				}
+			});
+		});
+
+		if (audioChunks.length === 0) {
+			return json({ error: 'No audio received from Fish Audio' }, { status: 500 });
+		}
+
+		console.log(`[Fish Stream] Session complete: ${audioChunks.length} audio chunks`);
+
+		const audioBuffer = Buffer.concat(audioChunks);
+		const ct =
+			config.format === 'wav'
+				? 'audio/wav'
+				: config.format === 'opus'
+					? 'audio/opus'
+					: 'audio/mpeg';
+
+		return new Response(audioBuffer, {
+			headers: {
+				'Content-Type': ct,
+				'Content-Length': audioBuffer.length.toString()
+			}
+		});
+	} catch (err: any) {
+		console.error('[Fish Stream] Error:', err.message);
+		return json({ error: err.message || 'Fish Audio WebSocket TTS failed' }, { status: 500 });
+	}
+}
+
+function splitIntoSentences(text: string): string[] {
+	const sentences: string[] = [];
+	let current = '';
+
+	for (let i = 0; i < text.length; i++) {
+		current += text[i];
+		const ch = text[i];
+
+		if ((ch === '.' || ch === '!' || ch === '?') && current.trim().length > 5) {
+			if (
+				ch === '.' &&
+				i > 0 &&
+				i < text.length - 1 &&
+				/\d/.test(text[i - 1]) &&
+				/\d/.test(text[i + 1])
+			) {
+				continue;
+			}
+			sentences.push(current.trim());
+			current = '';
+		}
+	}
+
+	if (current.trim()) {
+		sentences.push(current.trim());
+	}
+
+	return sentences.length > 0 ? sentences : [text];
+}

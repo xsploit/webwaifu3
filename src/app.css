@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ============================================
+   Luminous Graphite Theme
+   ============================================ */
+
+:root {
+  --bg-canvas: transparent;
+  --c-panel: rgba(13, 17, 23, 0.96);
+  --c-border: rgba(56, 189, 248, 0.2);
+  --c-border-hover: rgba(56, 189, 248, 0.5);
+  --c-text-accent: #38bdf8;
+  --text-main: #f0f6fc;
+  --text-muted: #8b949e;
+  --text-dim: #484f58;
+  --danger: #ef4444;
+  --success: #10b981;
+  --font-ui: "Inter", system-ui, sans-serif;
+  --font-tech: "JetBrains Mono", monospace;
+  --ease-tech: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+* {
+  box-sizing: border-box;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  background: #02040a;
+  font-family: var(--font-ui);
+  color: var(--text-main);
+}
+
+/* ============================================
+   Tech Form Elements
+   ============================================ */
+
+select,
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--c-border);
+  color: var(--text-main);
+  padding: 10px;
+  font-size: 0.85rem;
+  font-family: var(--font-ui);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  transition: border-color 0.2s;
+}
+
+select:focus,
+input:focus {
+  border-color: var(--c-text-accent);
+}
+
+textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--c-border);
+  color: var(--text-main);
+  padding: 10px;
+  font-size: 0.85rem;
+  font-family: var(--font-ui);
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+textarea:focus {
+  border-color: var(--c-text-accent);
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================
+   Scrollbar
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--c-border);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--c-text-accent);
+}
