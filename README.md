@@ -1,201 +1,197 @@
+<div align="center">
+
+<img src="./static/assets/webwaifu3-banner.svg" alt="WEBWAIFU 3 banner" width="100%" />
+
 # WEBWAIFU 3
 
-**Browser-based VRM avatar companion with AI chat, text-to-speech, speech-to-text, semantic memory, and real-time 3D animations.**
+### Browser-based VRM companion with local/cloud AI, voice, memory, and real-time 3D
 
-WEBWAIFU 3 runs entirely in your browser. Load any VRM model, connect a local or cloud LLM, and have a conversation with your 3D companion complete with lip sync, idle animations, and post-processing effects.
+<p>
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#feature-surface">Features</a> |
+  <a href="#provider-setup">Provider Setup</a> |
+  <a href="#architecture">Architecture</a>
+</p>
 
----
+<p>
+  <img src="https://img.shields.io/badge/SvelteKit-2-FF3E00?logo=svelte&logoColor=white" alt="SvelteKit 2" />
+  <img src="https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5" />
+  <img src="https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white" alt="Vite 7" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
+  <img src="https://img.shields.io/badge/Three.js-0.182-000000?logo=three.js&logoColor=white" alt="Three.js 0.182" />
+  <img src="https://img.shields.io/badge/VRM-@pixiv/three--vrm-1f2937" alt="VRM" />
+</p>
 
-## Features
+<p>
+  <img src="https://img.shields.io/badge/LLM-Ollama%20%7C%20LM%20Studio%20%7C%20OpenAI%20%7C%20OpenRouter-0f172a" alt="LLM Providers" />
+  <img src="https://img.shields.io/badge/TTS-Kokoro%20%7C%20Fish%20Audio-0f172a" alt="TTS Providers" />
+  <img src="https://img.shields.io/badge/STT-Whisper%20tiny.en-0f172a" alt="STT" />
+  <img src="https://img.shields.io/badge/Storage-IndexedDB-0f172a" alt="IndexedDB" />
+</p>
 
-### AI Chat
-- **Ollama** and **LM Studio** for free local inference
-- **OpenAI** and **OpenRouter** for cloud models (100+ models via OpenRouter)
-- Streaming responses with real-time TTS integration
-- Customizable system prompts via character personas (Tsundere, Kuudere, Genki, etc.)
+</div>
+
+<h2 align="center" id="what-it-is">What It Is</h2>
+
+WEBWAIFU 3 is a SvelteKit application that renders a VRM avatar and connects it to chat + voice AI pipelines in the browser.
+
+Primary routes:
+
+- `/` main companion UI
+- `/manager` provider config, memory controls, voice management, and data tools
+
+<h2 align="center" id="feature-surface">Feature Surface</h2>
+
+### AI chat
+
+- Providers: `ollama`, `lmstudio`, `openai`, `openrouter`
+- Streaming token output wired into TTS enqueue flow
 - Per-request Ollama tuning: `num_ctx`, `flash_attn`, `kv_cache_type`
+- Character-based system prompts
 
-### Semantic Memory
-- **Embedding-based context** using MiniLM-L6-v2 (23MB, 384 dimensions, runs in browser)
-- Three modes: **Auto-Prune**, **Auto-Summarize**, **Hybrid**
-- Cosine similarity search injects relevant past messages into LLM context
-- Optional summarization LLM compresses older messages
-- All embeddings stored locally in IndexedDB
+### Text-to-speech
 
-### Text-to-Speech
-- **Kokoro** (Local) — 28 voices via WebGPU/WASM, no server or API key needed
-- **Fish Audio** (Cloud) — High-quality streaming TTS with voice cloning, real-time WebSocket streaming
+- Kokoro local TTS in a dedicated worker
+- Fish Audio cloud TTS (streaming and non-streaming paths)
+- Fish voice model operations from manager UI: list, search, create, delete
 
-### Speech-to-Text
-- **Whisper** via Web Worker — runs locally in your browser
-- Push-to-talk mic button with auto-send option
-- Mic permission pre-check with clear feedback
-- Model downloads on first use (~40MB)
+### Speech-to-text
 
-### 3D Avatar
-- VRM model loading (built-in or custom upload, persisted across sessions)
-- Animation sequencer with Mixamo FBX animations (auto-cycling, shuffle, speed control)
-- PBR realistic materials toggle
-- Post-processing: Bloom, Chromatic Aberration, Film Grain, FXAA/SMAA/TAA, Glitch, Vignette, Bleach Bypass, Color Correction
-- Adjustable 5-point lighting (Key, Fill, Rim, Hemisphere, Ambient)
-- Real-time lip sync driven by TTS audio amplitude
+- Whisper model: `Xenova/whisper-tiny.en`
+- Worker-based transcription
+- Push-to-talk with optional auto-send and mic permission pre-check
 
-### Persistence
-- All settings auto-saved to IndexedDB (API keys, visual settings, models, voices, memory config, etc.)
-- VRM model files stored in IndexedDB for custom uploads
-- Conversation history preserved across reloads
-- Models (Kokoro, Whisper, embeddings) auto-load on startup when previously enabled
+### Semantic memory
 
-### Waifu Manager
-- Dedicated settings page (`/manager`) for managing everything
-- API keys and endpoints per provider
-- LLM model defaults per provider
-- Fish Audio voice browser with search and latency config
-- Memory system configuration (mode, thresholds, summarization LLM)
-- Conversation browser with export (JSON/TXT) and delete
-- Data management: export all, import, clear history, factory reset
+- Embeddings model: `Xenova/all-MiniLM-L6-v2` in worker
+- Modes: `auto-prune`, `auto-summarize`, `hybrid`
+- Similarity retrieval merges relevant history into prompt context
+- Optional summarization LLM configuration
 
----
+### 3D avatar and rendering
 
-## Quick Start
+- VRM load from built-in asset or user upload
+- Animation playlist/sequencer and crossfade controls
+- Realistic material toggle (PBR path)
+- Post-processing controls: bloom, chromatic aberration, film grain, glitch, FXAA/SMAA/TAA, bleach bypass, color correction, outline
+- Adjustable key/fill/rim/hemi/ambient lighting
+- Lip sync driven from active speech playback
 
-### Prerequisites
+### Persistence and management
 
-You need **one** of the following for AI chat:
+- App settings saved in IndexedDB
+- Provider defaults, visual settings, active tab, and conversation state persisted
+- Conversation export (`JSON`, `TXT`)
+- Data tools in manager: export all, import, clear history, factory reset
+- Custom VRM binary persisted in IndexedDB
+- Splash acceptance modal is shown on every load
 
-| Provider | Cost | Setup |
-|----------|------|-------|
-| [Ollama](https://ollama.ai) | Free | Install, pull a model, enable network access |
-| [LM Studio](https://lmstudio.ai) | Free | Install, download a model, start the server |
-| [OpenRouter](https://openrouter.ai) | Pay per token | Get an API key, 100+ models available |
-| [OpenAI](https://platform.openai.com) | Pay per token | Get an API key |
+<h2 align="center" id="quick-start">Quick Start</h2>
 
-### Install and Run
+### Requirements
+
+- Node.js (current LTS recommended)
+- npm
+- Modern browser with WebGL + WebAudio support
+- At least one chat backend:
+  - Local (`Ollama` or `LM Studio`)
+  - Cloud (`OpenAI` or `OpenRouter`)
+
+### Install and run
 
 ```bash
-git clone https://github.com/xsploit/webwaifu3.git
-cd webwaifu3
 npm install
 npm run dev
 ```
 
-Opens on `https://localhost:5173` (HTTPS via `@vitejs/plugin-basic-ssl` for HTTP/2 streaming support).
+Dev URL: `https://localhost:5173`  
+Note: HTTPS in development is provided by `@vitejs/plugin-basic-ssl`.
 
-### Ollama Setup
+<h2 align="center" id="provider-setup">Provider Setup</h2>
 
-Ollama needs two things to work with WEBWAIFU 3:
+### Ollama
 
-**1. Allow network access** — In Ollama's system tray settings, enable **"Allow through network"**.
+1. Install Ollama and pull a model (example: `ollama pull llama3.2`).
+2. Enable "Allow through network" in Ollama settings.
+3. Set CORS origins so the browser can access Ollama.
 
-**2. Set allowed origins** — The browser needs CORS permission to reach Ollama.
+Mac/Linux:
 
-**Mac/Linux:**
 ```bash
 OLLAMA_ORIGINS=* ollama serve
 ```
 
-**Windows** — Set `OLLAMA_ORIGINS` as a system environment variable:
-1. Open Start > search "Environment Variables" > Edit system environment variables
-2. Under System Variables, click New
-3. Variable name: `OLLAMA_ORIGINS`, Value: `*`
-4. Restart Ollama
+Windows:
 
-### LM Studio Setup
+1. Add system environment variable `OLLAMA_ORIGINS=*`.
+2. Restart Ollama.
 
-1. Open LM Studio and download a model
-2. Go to the **Local Server** tab
-3. Enable **CORS** in server settings
-4. Start the server (default port: 1234)
+### LM Studio
 
----
+1. Download a model.
+2. Start local server (default `http://localhost:1234`).
+3. Enable CORS in LM Studio server settings.
 
-## Security Model
+### OpenAI / OpenRouter
 
-### API Keys
-All API keys are stored **locally** in your browser's IndexedDB. They are only sent directly to their respective provider APIs (OpenAI, OpenRouter, Fish Audio) and never to any third-party server.
+1. Open `/manager`.
+2. Add API key.
+3. Select provider and model defaults.
 
-### Cloud TTS Proxy
-Fish Audio doesn't support browser CORS, so TTS requests are proxied through a SvelteKit server route (`/api/tts/fish-stream`). When self-hosting, your API key passes through your own server. On Vercel, it passes through Vercel's serverless functions.
+### Fish Audio
 
-### Client-Side Risks
-Since API keys are stored in the browser, they are subject to standard client-side risks (XSS, malicious browser extensions, local malware). Use dedicated API keys with spending limits where possible.
+1. Add Fish API key in `/manager`.
+2. Fish requests are proxied through server routes:
+   - `POST /api/tts/fish`
+   - `POST /api/tts/fish-stream`
 
----
+<h2 align="center" id="model-and-runtime-notes">Model and Runtime Notes</h2>
 
-## Architecture
+On first use, browser-side model downloads may occur and be cached:
 
-```
-SvelteKit 2 + Svelte 5 (runes)
-├── Three.js + @pixiv/three-vrm    3D rendering
-├── Vercel AI SDK (Responses API)   LLM integration (all 4 providers)
-├── Kokoro TTS (Web Worker)         Local text-to-speech (28 voices)
-├── Whisper STT (Web Worker)        Local speech-to-text
-├── Fish Audio SDK                  Cloud TTS + WebSocket streaming
-├── MiniLM-L6-v2 (Web Worker)      Semantic memory embeddings
-├── IndexedDB (v2)                  Settings, conversations, embeddings, summaries
-└── Vite 7 + @tailwindcss/vite     Build tooling
-```
+- Kokoro ONNX model (local TTS)
+- Whisper tiny.en model (local STT, roughly 40 MB class)
+- MiniLM-L6-v2 model (embeddings, roughly 23 MB class)
 
-### Directory Structure
+Exact download size and startup latency can vary by platform and upstream model packaging.
 
-```
-src/
-├── lib/
-│   ├── components/       UI (VrmCanvas, ChatBar, SettingsPanel, SplashModal, tabs/)
-│   ├── components/manager/  Waifu Manager sections (API keys, models, voices, memory, data)
-│   ├── llm/              LLM client (Ollama, LM Studio, OpenAI, OpenRouter)
-│   ├── tts/              TTS manager, Kokoro worker
-│   ├── stt/              Whisper STT recorder + worker
-│   ├── memory/           Embedding worker + MemoryManager (semantic search, summarization)
-│   ├── vrm/              Scene, animation, sequencer, loader, lipsync, postprocessing
-│   ├── stores/           Svelte 5 reactive state (app.svelte.ts)
-│   └── storage/          IndexedDB persistence layer (DB v2)
-├── routes/
-│   ├── +page.svelte      Main app page
-│   ├── manager/          Waifu Manager settings page
-│   └── api/tts/          Server-side TTS proxy (Fish Audio streaming)
-└── app.css               Global styles
+<h2 align="center" id="security">Security</h2>
+
+- Keys are stored in browser IndexedDB.
+- Keys are sent only to selected providers and required proxy endpoints.
+- Fish TTS requires API key transit through your deployed SvelteKit server route.
+- Use scoped keys and provider spending limits for production.
+
+<h2 align="center" id="scripts">Scripts</h2>
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run check
 ```
 
----
+<h2 align="center" id="architecture">Architecture</h2>
 
-## Performance Notes
+- Frontend: SvelteKit 2, Svelte 5, TypeScript
+- 3D: `three`, `@pixiv/three-vrm`
+- LLM: `ai`, `@ai-sdk/openai`, `@ai-sdk/open-responses`
+- STT/Memory models: `@huggingface/transformers` in web workers
+- TTS: `kokoro-js` (local), `fish-audio` (cloud)
+- Persistence: IndexedDB via `src/lib/storage/index.ts`
 
-- Client bundle is ~2.3MB (Three.js + VRM + AI SDK). Expected for a 3D web app.
-- Kokoro TTS model downloads ~86MB on first use (cached by the browser).
-- Whisper STT model downloads ~40MB on first use.
-- MiniLM-L6-v2 embedding model downloads ~23MB on first use.
-- WebGPU is preferred for Kokoro TTS; falls back to WASM if unavailable.
+<h2 align="center" id="deployment">Deployment</h2>
 
----
+Current project config uses `@sveltejs/adapter-vercel` (`svelte.config.js`).
 
-## Deployment
+If you deploy to a different target, switch adapters and ensure the Fish API routes are deployed server-side.
 
-### Vercel (Recommended)
+<h2 align="center" id="project-notes">Project Notes</h2>
 
-Push to GitHub and import on [vercel.com](https://vercel.com). Auto-detected as SvelteKit with `@sveltejs/adapter-vercel`. Serverless functions handle the Fish Audio TTS proxy.
+- UI branding is `WEBWAIFU 3`.
+- Some storage internals still use legacy naming for migration compatibility.
 
-### Self-Hosting
+<h2 align="center" id="license">License</h2>
 
-Use any Node.js hosting. Switch adapter in `svelte.config.js` as needed (e.g., `adapter-node` for a standalone server).
-
----
-
-## Tech Stack
-
-- **Frontend:** SvelteKit 2, Svelte 5, TypeScript
-- **3D:** Three.js, @pixiv/three-vrm
-- **AI:** Vercel AI SDK (Responses API), OpenAI-compatible providers
-- **TTS:** Kokoro (local WebGPU/WASM), Fish Audio (cloud WebSocket streaming)
-- **STT:** Hugging Face Transformers (Whisper, local)
-- **Memory:** MiniLM-L6-v2 embeddings (local), cosine similarity search
-- **Storage:** IndexedDB (settings, conversations, embeddings, summaries)
-- **Build:** Vite 7, @tailwindcss/vite
-- **Hosting:** Vercel (serverless functions for TTS proxy)
-
----
-
-## License
-
-MIT
+This repository currently does not include a `LICENSE` file. Add one before public distribution.
 
