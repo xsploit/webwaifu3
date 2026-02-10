@@ -3,7 +3,7 @@
  * WebGPU/WASM runs inside this worker.
  *
  * Device: null = auto (WebGPU if available, else WASM). Prefer WebGPU for speed.
- * dtype: "q8" = good balance; "q4" = lighter/faster, slightly worse quality (good for wasm/cpu).
+ * dtype: "q4" = fastest default; "q8" = higher quality but heavier.
  */
 /// <reference lib="webworker" />
 
@@ -57,9 +57,9 @@ self.onmessage = async (e: MessageEvent) => {
 		try {
 			const { KokoroTTS } = await import('kokoro-js');
 			// device: null = auto (webgpu then wasm). Use "wasm" for CPU-only; "webgpu" to force GPU.
-			// dtype: q8 = best balance; q4 = lighter/faster (good with device: "wasm" on low-end).
+			// dtype: q4 default for faster startup; q8 gives better quality at higher cost.
 			tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-				dtype: options?.dtype ?? 'q8',
+				dtype: options?.dtype ?? 'q4',
 				device: options?.device ?? null,
 				progress_callback: (p: unknown) => {
 					self.postMessage({ type: 'init-progress', detail: p });

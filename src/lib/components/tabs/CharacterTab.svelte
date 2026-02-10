@@ -92,7 +92,7 @@
 </script>
 
 <div class="control-group">
-	<label class="control-label">Active Character</label>
+	<div class="control-label">Active Character</div>
 	<select class="select-tech" onchange={(e) => {
 		const idx = (e.target as HTMLSelectElement).selectedIndex;
 		if (chars.all[idx]) selectCharacter(chars.all[idx]);
@@ -107,17 +107,17 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Character Name</label>
+	<div class="control-label">Character Name</div>
 	<input type="text" class="input-tech" bind:value={name} placeholder="Character name..." />
 </div>
 
 <div class="control-group">
-	<label class="control-label">System Prompt</label>
+	<div class="control-label">System Prompt</div>
 	<textarea class="textarea-tech" rows="6" bind:value={systemPrompt} placeholder="Define your character's personality..."></textarea>
 </div>
 
 <div class="control-group">
-	<label class="control-label">Description (optional)</label>
+	<div class="control-label">Description (optional)</div>
 	<input type="text" class="input-tech" bind:value={description} placeholder="Brief description..." />
 </div>
 

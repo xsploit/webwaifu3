@@ -28,7 +28,7 @@
 </script>
 
 <div class="control-group">
-	<label class="control-label">Speech-to-Text</label>
+	<div class="control-label">Speech-to-Text</div>
 
 	<div class="toggle-row">
 		<span>Enable STT</span>
@@ -48,7 +48,7 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Whisper Model</label>
+	<div class="control-label">Whisper Model</div>
 
 	<div class="status-row">
 		<span class="status-dot" class:ready={stt.modelReady} class:loading={stt.modelLoading}></span>

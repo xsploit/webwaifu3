@@ -1,25 +1,19 @@
 <script lang="ts">
 	let visible = $state(true);
-
-	// Check if user has dismissed before
-	if (typeof localStorage !== 'undefined') {
-		const dismissed = localStorage.getItem('nethoe:splash-dismissed');
-		if (dismissed) visible = false;
-	}
+	let accepted = $state(false);
 
 	function dismiss() {
+		if (!accepted) return;
 		visible = false;
-		localStorage.setItem('nethoe:splash-dismissed', '1');
+		window.dispatchEvent(new CustomEvent('nethoe:splash-accepted'));
 	}
 </script>
 
 {#if visible}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="splash-overlay" onclick={dismiss}>
-		<div class="splash-modal" onclick={(e) => e.stopPropagation()}>
+	<div class="splash-overlay">
+		<div class="splash-modal" role="dialog" aria-modal="true" aria-labelledby="splash-title">
 			<div class="splash-header">
-				<h1 class="splash-title">NETHOE</h1>
+				<h1 class="splash-title" id="splash-title">NETHOE</h1>
 				<span class="splash-sub">VRM Companion Engine</span>
 			</div>
 
@@ -34,7 +28,7 @@
 					<ul>
 						<li><strong>LLM Required</strong> &mdash; You need either a local model server (<strong>Ollama</strong> or <strong>LM Studio</strong>) or a cloud API key (<strong>OpenAI</strong> / <strong>OpenRouter</strong>).</li>
 						<li><strong>Ollama Network Access</strong> &mdash; In Ollama's settings, enable <strong>"Allow through network"</strong> so the browser can reach it. You also need to set allowed origins: set the environment variable <code>OLLAMA_ORIGINS=*</code> (or add your app's URL) before running <code>ollama serve</code>. On Windows, set it in System Environment Variables and restart Ollama.</li>
-					<li><strong>LM Studio CORS</strong> &mdash; Enable CORS in the LM Studio server settings.</li>
+						<li><strong>LM Studio CORS</strong> &mdash; Enable CORS in the LM Studio server settings.</li>
 						<li><strong>API Keys are Stored Locally</strong> &mdash; All API keys (LLM, TTS) are saved in your browser's IndexedDB. They never leave your machine except when sent directly to the provider APIs.</li>
 					</ul>
 				</section>
@@ -60,7 +54,18 @@
 				</section>
 			</div>
 
-			<button class="splash-dismiss" onclick={dismiss}>Got it, let me in</button>
+			<div class="splash-ack-box">
+				<label class="splash-ack-row">
+					<input type="checkbox" bind:checked={accepted} />
+					<span>
+						I agree / I accept that NetHoe needs either local AI (Ollama or LM Studio) or cloud API keys (OpenAI/OpenRouter) to generate responses.
+					</span>
+				</label>
+			</div>
+
+			<button class="splash-dismiss" onclick={dismiss} disabled={!accepted}>
+				I Accept - Continue
+			</button>
 		</div>
 	</div>
 {/if}
@@ -131,6 +136,33 @@
 		letter-spacing: 0.1em; cursor: pointer; transition: opacity 0.2s;
 	}
 	.splash-dismiss:hover { opacity: 0.85; }
+	.splash-dismiss:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+	.splash-dismiss:disabled:hover { opacity: 0.45; }
+	.splash-ack-box {
+		margin: 0 28px;
+		padding: 12px 14px;
+		border: 1px solid rgba(56,189,248,0.25);
+		background: rgba(56,189,248,0.06);
+	}
+	.splash-ack-row {
+		display: grid;
+		grid-template-columns: 16px 1fr;
+		gap: 10px;
+		align-items: start;
+		cursor: pointer;
+	}
+	.splash-ack-row input[type='checkbox'] {
+		margin-top: 3px;
+		accent-color: #38bdf8;
+	}
+	.splash-ack-row span {
+		font-size: 0.78rem;
+		line-height: 1.55;
+		color: rgba(255,255,255,0.82);
+	}
 	/* Scrollbar */
 	.splash-modal::-webkit-scrollbar { width: 4px; }
 	.splash-modal::-webkit-scrollbar-track { background: transparent; }

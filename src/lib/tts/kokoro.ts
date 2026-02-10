@@ -72,7 +72,7 @@ export interface KokoroInitOptions {
 
 /**
  * Initialize Kokoro TTS
- * Downloads ~86MB model on first load (with q8 quantization)
+ * Downloads model on first load (q4 default for faster startup)
  */
 export async function initKokoroTTS(options: KokoroInitOptions = {}): Promise<void> {
     if (isReady) return;
@@ -108,7 +108,7 @@ export async function initKokoroTTS(options: KokoroInitOptions = {}): Promise<vo
         };
 
         tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-            dtype: options.dtype ?? 'q8',
+            dtype: options.dtype ?? 'q4',
             device: options.device ?? null, // Auto-detect (WebGPU if available, else WASM)
             progress_callback: progressCallback,
         });

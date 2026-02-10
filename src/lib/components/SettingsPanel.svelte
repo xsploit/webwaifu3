@@ -1,15 +1,12 @@
 <script lang="ts">
 	import { getSettingsPanel } from '../stores/app.svelte.js';
-	import VrmTab from './tabs/VrmTab.svelte';
-	import AnimTab from './tabs/AnimTab.svelte';
-	import CharacterTab from './tabs/CharacterTab.svelte';
-	import AiTab from './tabs/AiTab.svelte';
-	import TtsTab from './tabs/TtsTab.svelte';
-	import LogsTab from './tabs/LogsTab.svelte';
-	import SttTab from './tabs/SttTab.svelte';
 
 	const panel = getSettingsPanel();
-	const tabs = [
+
+	type TabId = 'vrm' | 'anim' | 'character' | 'ai' | 'tts' | 'stt' | 'logs';
+	type TabModule = { default: any };
+
+	const tabs: { id: TabId; label: string }[] = [
 		{ id: 'vrm', label: 'VRM' },
 		{ id: 'anim', label: 'Anim' },
 		{ id: 'character', label: 'Char' },
@@ -18,6 +15,33 @@
 		{ id: 'stt', label: 'STT' },
 		{ id: 'logs', label: 'Logs' }
 	];
+
+	const tabLoaders: Record<TabId, () => Promise<TabModule>> = {
+		vrm: () => import('./tabs/VrmTab.svelte'),
+		anim: () => import('./tabs/AnimTab.svelte'),
+		character: () => import('./tabs/CharacterTab.svelte'),
+		ai: () => import('./tabs/AiTab.svelte'),
+		tts: () => import('./tabs/TtsTab.svelte'),
+		stt: () => import('./tabs/SttTab.svelte'),
+		logs: () => import('./tabs/LogsTab.svelte')
+	};
+	const tabCache = new Map<TabId, Promise<TabModule>>();
+
+	function getTabModule(tabId: TabId): Promise<TabModule> {
+		const cached = tabCache.get(tabId);
+		if (cached) return cached;
+		const loaded = tabLoaders[tabId]();
+		tabCache.set(tabId, loaded);
+		return loaded;
+	}
+
+	function getActiveTabId(): TabId {
+		return tabs.some((tab) => tab.id === panel.activeTab) ? panel.activeTab as TabId : 'vrm';
+	}
+
+	function getActiveTabModule(): Promise<TabModule> {
+		return getTabModule(getActiveTabId());
+	}
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -41,21 +65,13 @@
 	</div>
 
 	<div class="panel-scroll">
-		{#if panel.activeTab === 'vrm'}
-			<VrmTab />
-		{:else if panel.activeTab === 'anim'}
-			<AnimTab />
-		{:else if panel.activeTab === 'character'}
-			<CharacterTab />
-		{:else if panel.activeTab === 'ai'}
-			<AiTab />
-		{:else if panel.activeTab === 'tts'}
-			<TtsTab />
-		{:else if panel.activeTab === 'stt'}
-			<SttTab />
-		{:else if panel.activeTab === 'logs'}
-			<LogsTab />
-		{/if}
+		{#await getActiveTabModule()}
+			<div class="tab-loading">Loading tab...</div>
+		{:then tabModule}
+			<svelte:component this={tabModule.default} />
+		{:catch}
+			<div class="tab-error">Failed to load tab.</div>
+		{/await}
 	</div>
 </div>
 
@@ -149,6 +165,14 @@
 		gap: 20px;
 		animation: fadeIn 0.3s ease;
 	}
+	.tab-loading, .tab-error {
+		font-family: var(--font-tech);
+		font-size: 0.75rem;
+		color: var(--text-muted);
+		padding: 12px;
+		border: 1px dashed var(--c-border);
+	}
+	.tab-error { color: var(--danger); }
 	@media (max-width: 900px) {
 		#settings-panel {
 			width: 100%;

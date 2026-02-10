@@ -1,4 +1,3 @@
-import { phonemize } from 'phonemizer';
 import { isKokoroReady, generateSpeechBlob, KOKORO_VOICES, type KokoroVoice } from './kokoro.js';
 
 // NOTE: Worker URL must be inline in `new Worker()` call so Vite
@@ -278,7 +277,7 @@ export class TtsManager {
 			this.kokoroReadyInWorker = false;
 			window.dispatchEvent(new CustomEvent('kokoro-tts-status', { detail: 'Worker error: ' + err.message }));
 		};
-		this.ttsWorker.postMessage({ type: 'init', options: { dtype: options.dtype ?? 'q8', device: options.device ?? null } });
+		this.ttsWorker.postMessage({ type: 'init', options: { dtype: options.dtype ?? 'q4', device: options.device ?? null } });
 		window.dispatchEvent(new CustomEvent('kokoro-tts-status', { detail: 'Downloading Kokoro TTS model...' }));
 	}
 

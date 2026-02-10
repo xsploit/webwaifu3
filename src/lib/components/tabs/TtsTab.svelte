@@ -73,7 +73,7 @@
 	let fishModels = $state<{ id: string; name: string; author?: string }[]>([]);
 	let fishLoading = $state(false);
 	let fishCreating = $state(false);
-	let fishVoiceInput: HTMLInputElement;
+	let fishVoiceInput = $state<HTMLInputElement | null>(null);
 	let fishVoiceName = $state('');
 	let fishSearchQuery = $state('');
 	let fishSearchResults = $state<{ id: string; name: string; author?: string }[]>([]);
@@ -214,7 +214,7 @@
 </script>
 
 <div class="control-group">
-	<label class="control-label">TTS Engine</label>
+	<div class="control-label">TTS Engine</div>
 	<select class="select-tech" onchange={onProviderChange}>
 		<option value="kokoro" selected={tts.provider === 'kokoro'}>Kokoro (Local/WebGPU)</option>
 		<option value="fish" selected={tts.provider === 'fish'}>Fish Audio (Cloud)</option>
@@ -223,7 +223,7 @@
 
 {#if showKokoroOptions}
 	<div class="control-group">
-		<label class="control-label">Kokoro Status</label>
+		<div class="control-label">Kokoro Status</div>
 		<div class="kokoro-status">
 			{#if tts.kokoroReady}
 				<span class="status-ready">Ready</span>
@@ -237,7 +237,7 @@
 	</div>
 
 	<div class="control-group">
-		<label class="control-label">Voice Selection</label>
+		<div class="control-label">Voice Selection</div>
 		<select class="select-tech" onchange={onVoiceChange}>
 			{#each kokoroVoices as group}
 				<optgroup label={group.label}>
@@ -252,12 +252,12 @@
 
 {#if showFishKey}
 	<div class="control-group">
-		<label class="control-label">Fish Audio API Key</label>
+		<div class="control-label">Fish Audio API Key</div>
 		<input type="password" class="input-tech" bind:value={tts.fishApiKey} placeholder="Enter Fish Audio API key..." />
 	</div>
 
 	<div class="control-group">
-		<label class="control-label">Your Voice Models</label>
+		<div class="control-label">Your Voice Models</div>
 		<div class="ref-audio-row">
 			<button class="btn-init" onclick={loadFishModels} disabled={fishLoading}>
 				{fishLoading ? 'Loading...' : 'Load My Models'}
@@ -275,7 +275,7 @@
 	</div>
 
 	<div class="control-group">
-		<label class="control-label">Search Public Models</label>
+		<div class="control-label">Search Public Models</div>
 		<div class="ref-audio-row">
 			<input type="text" class="input-tech" style="flex:1" bind:value={fishSearchQuery} placeholder="Search voices..." onkeydown={(e) => e.key === 'Enter' && searchFishModels()} />
 			<button class="btn-init" onclick={searchFishModels} disabled={fishSearching}>
@@ -294,11 +294,11 @@
 	</div>
 
 	<div class="control-group">
-		<label class="control-label">Create Custom Voice</label>
+		<div class="control-label">Create Custom Voice</div>
 		<input type="text" class="input-tech" bind:value={fishVoiceName} placeholder="Voice name..." />
 		<div class="ref-audio-row">
 			<input type="file" accept="audio/*" bind:this={fishVoiceInput} onchange={createFishVoice} style="display:none" />
-			<button class="btn-tech" style="flex:1" onclick={() => { if (!fishVoiceName.trim()) { toast('Enter a voice name first'); return; } fishVoiceInput.click(); }} disabled={fishCreating}>
+			<button class="btn-tech" style="flex:1" onclick={() => { if (!fishVoiceName.trim()) { toast('Enter a voice name first'); return; } fishVoiceInput?.click(); }} disabled={fishCreating}>
 				{fishCreating ? 'Creating...' : 'Select Audio + Create Voice'}
 			</button>
 		</div>
@@ -306,12 +306,12 @@
 	</div>
 
 	<div class="control-group">
-		<label class="control-label">Voice / Reference ID</label>
+		<div class="control-label">Voice / Reference ID</div>
 		<input type="text" class="input-tech" bind:value={tts.fishVoiceId} placeholder="Reference ID (or select from above)" />
 	</div>
 
 	<div class="control-group">
-		<label class="control-label">Engine Model</label>
+		<div class="control-label">Engine Model</div>
 		<select class="select-tech" onchange={(e) => tts.fishModel = (e.target as HTMLSelectElement).value}>
 			{#each ['s1', 'speech-1.5', 'speech-1.6'] as m}
 				<option value={m} selected={tts.fishModel === m}>{m}</option>
@@ -321,7 +321,7 @@
 {/if}
 
 <div class="control-group">
-	<label class="control-label">Test Input</label>
+	<div class="control-label">Test Input</div>
 	<input type="text" class="input-tech" bind:value={testInput} placeholder="Type text to test..." />
 </div>
 
@@ -333,7 +333,7 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Info</label>
+	<div class="control-label">Info</div>
 	<div class="info-box">
 		<strong class="accent">Kokoro:</strong> 28 voices, runs locally via WebGPU/WASM. No server needed!<br>
 		<strong class="accent">Fish Audio:</strong> High quality cloud TTS with custom voice cloning. Requires API key.<br>
@@ -398,9 +398,4 @@
 	}
 	.saved-voice-btn:hover { border-color: var(--c-text-accent); }
 	.saved-voice-btn.active { border-color: var(--c-text-accent); background: rgba(56,189,248,0.1); color: var(--c-text-accent); }
-	.btn-delete {
-		padding: 4px 8px; background: transparent; border: 1px solid rgba(255,80,80,0.3);
-		color: rgba(255,80,80,0.6); font-size: 0.7rem; cursor: pointer; transition: all 0.2s;
-	}
-	.btn-delete:hover { border-color: rgba(255,80,80,0.8); color: rgba(255,80,80,1); }
 </style>

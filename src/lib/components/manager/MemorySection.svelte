@@ -161,17 +161,17 @@
 			<h3 class="sub-title">Context Settings</h3>
 
 			<div class="slider-row">
-				<label>Max Context Messages: <strong>{maxContext}</strong></label>
+				<div>Max Context Messages: <strong>{maxContext}</strong></div>
 				<input type="range" min="5" max="50" step="1" bind:value={maxContext} />
 			</div>
 
 			<div class="slider-row">
-				<label>Semantic Search Top-K: <strong>{topK}</strong></label>
+				<div>Semantic Search Top-K: <strong>{topK}</strong></div>
 				<input type="range" min="1" max="10" step="1" bind:value={topK} />
 			</div>
 
 			<div class="slider-row">
-				<label>Similarity Threshold: <strong>{similarityThreshold.toFixed(2)}</strong></label>
+				<div>Similarity Threshold: <strong>{similarityThreshold.toFixed(2)}</strong></div>
 				<input type="range" min="0.1" max="0.9" step="0.05" bind:value={similarityThreshold} />
 			</div>
 		</div>
@@ -182,12 +182,12 @@
 				<h3 class="sub-title">Auto-Summarize Config</h3>
 
 				<div class="slider-row">
-					<label>Window Size (raw messages): <strong>{windowSize}</strong></label>
+					<div>Window Size (raw messages): <strong>{windowSize}</strong></div>
 					<input type="range" min="10" max="100" step="5" bind:value={windowSize} />
 				</div>
 
 				<div class="field-group">
-					<label class="field-label">Summarization LLM Provider</label>
+					<div class="field-label">Summarization LLM Provider</div>
 					<select class="select-tech" bind:value={summarizationProvider}>
 						<option value="">None (disable summarization)</option>
 						<option value="ollama">Ollama</option>
@@ -199,20 +199,20 @@
 
 				{#if summarizationProvider}
 					<div class="field-group">
-						<label class="field-label">Model</label>
+						<div class="field-label">Model</div>
 						<input type="text" class="input-tech" bind:value={summarizationModel} placeholder="e.g. llama3.2:3b, gpt-4o-mini" />
 					</div>
 
 					{#if summarizationProvider === 'openai' || summarizationProvider === 'openrouter'}
 						<div class="field-group">
-							<label class="field-label">API Key</label>
+							<div class="field-label">API Key</div>
 							<input type="password" class="input-tech" bind:value={summarizationApiKey} placeholder="API key for summarization LLM..." />
 						</div>
 					{/if}
 
 					{#if summarizationProvider === 'ollama' || summarizationProvider === 'lmstudio'}
 						<div class="field-group">
-							<label class="field-label">Endpoint</label>
+							<div class="field-label">Endpoint</div>
 							<input type="text" class="input-tech" bind:value={summarizationEndpoint} placeholder={summarizationProvider === 'ollama' ? 'http://localhost:11434' : 'http://localhost:1234'} />
 						</div>
 					{/if}
@@ -366,7 +366,7 @@
 	.slider-row {
 		margin-bottom: 10px;
 	}
-	.slider-row label {
+	.slider-row > div {
 		display: block;
 		font-size: 0.75rem;
 		color: var(--text-muted);

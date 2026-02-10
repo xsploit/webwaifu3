@@ -38,7 +38,7 @@
 </script>
 
 <div class="control-group">
-	<label class="control-label">Avatar Source</label>
+	<div class="control-label">Avatar Source</div>
 	<div class="file-drop-area" role="button" tabindex="0" onclick={() => vrmFileInput.click()} onkeydown={(e) => e.key === 'Enter' && vrmFileInput.click()}>
 		[ LOAD .VRM FILE ]
 		<input bind:this={vrmFileInput} type="file" accept=".vrm" style="display:none" onchange={handleVrmFile} />
@@ -47,7 +47,7 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Rendering Protocols</label>
+	<div class="control-label">Rendering Protocols</div>
 	<div class="toggle-row">
 		<span>PBR Realism</span>
 		<Toggle bind:checked={vrm.realisticMode} onchange={toggleRealistic} />
@@ -59,7 +59,7 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Post-Processing FX</label>
+	<div class="control-label">Post-Processing FX</div>
 	<div class="toggle-row"><span>Anime Outlines</span><Toggle bind:checked={vis.outline} onchange={(c) => { vrm.useOutlineEffect = c; }} /></div>
 	<div class="toggle-row"><span>Bloom</span><Toggle bind:checked={vis.bloom} onchange={(c) => togglePass('bloom', c)} /></div>
 	<div class="toggle-row"><span>Chromatic Aberration</span><Toggle bind:checked={vis.chroma} onchange={(c) => togglePass('chromatic', c)} /></div>
@@ -72,12 +72,12 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Animation Quality</label>
+	<div class="control-label">Animation Quality</div>
 	<Slider label="Crossfade Duration" bind:value={vrm.crossfadeDuration} min={0.1} max={3.0} step={0.1} />
 </div>
 
 <div class="control-group">
-	<label class="control-label">Film Look (Perry-Smith)</label>
+	<div class="control-label">Film Look (Perry-Smith)</div>
 	<div class="toggle-row"><span>Bleach Bypass</span><Toggle bind:checked={vis.bleach} onchange={(c) => togglePass('bleach', c)} /></div>
 	<Slider label="Intensity" bind:value={vis.bleachOpacity} min={0} max={1} step={0.05} oninput={(v) => updatePassUniform('bleach', 'opacity', v)} />
 	<div class="toggle-row"><span>Color Correction</span><Toggle bind:checked={vis.colorCorr} onchange={(c) => togglePass('colorCorrection', c)} /></div>
@@ -87,7 +87,7 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Shader Controls</label>
+	<div class="control-label">Shader Controls</div>
 	<Slider label="Bloom Strength" bind:value={vis.bloomStrength} min={0} max={2} step={0.1} oninput={(v) => updatePassUniform('bloom', 'strength', v)} />
 	<Slider label="Bloom Radius" bind:value={vis.bloomRadius} min={0} max={1} step={0.1} oninput={(v) => updatePassUniform('bloom', 'radius', v)} />
 	<Slider label="Bloom Threshold" bind:value={vis.bloomThreshold} min={0} max={1} step={0.05} oninput={(v) => updatePassUniform('bloom', 'threshold', v)} />
@@ -99,7 +99,7 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Lighting Controls</label>
+	<div class="control-label">Lighting Controls</div>
 	<Slider label="Key Light" bind:value={vis.keyLight} min={0} max={3} step={0.1} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'key', value: v } }))} />
 	<Slider label="Fill Light" bind:value={vis.fillLight} min={0} max={2} step={0.1} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'fill', value: v } }))} />
 	<Slider label="Rim Light" bind:value={vis.rimLight} min={0} max={2} step={0.05} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'rim', value: v } }))} />

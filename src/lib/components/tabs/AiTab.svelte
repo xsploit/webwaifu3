@@ -68,7 +68,7 @@
 </script>
 
 <div class="control-group">
-	<label class="control-label">Provider</label>
+	<div class="control-label">Provider</div>
 	<select class="select-tech" onchange={onProviderChange}>
 		{#each providers as p}
 			<option value={p.value} selected={llm.provider === p.value}>{p.label}</option>
@@ -77,7 +77,7 @@
 </div>
 
 <div class="control-group">
-	<label class="control-label">Model Selection</label>
+	<div class="control-label">Model Selection</div>
 	<select class="select-tech" onchange={(e) => llm.model = (e.target as HTMLSelectElement).value}>
 		{#each models.models as m}
 			<option value={m.id} selected={llm.model === m.id}>{m.name}</option>
@@ -91,33 +91,33 @@
 
 {#if needsApiKey}
 	<div class="control-group">
-		<label class="control-label">API Key</label>
+		<div class="control-label">API Key</div>
 		<input type="password" class="input-tech" bind:value={llm.apiKey} placeholder="Enter API key..." />
 	</div>
 {/if}
 
 {#if isLocal}
 	<div class="control-group">
-		<label class="control-label">Endpoint</label>
+		<div class="control-label">Endpoint</div>
 		<input type="text" class="input-tech" bind:value={llm.endpoint} placeholder={isOllama ? 'http://localhost:11434' : 'http://localhost:1234'} />
 	</div>
 {/if}
 
 <div class="control-group">
-	<label class="control-label">System Prompt (from Character)</label>
+	<div class="control-label">System Prompt (from Character)</div>
 	<textarea class="textarea-tech readonly" rows="3" readonly value={chars.current?.systemPrompt ?? ''} placeholder="Select a character in the Char tab..."></textarea>
 	<small class="hint">Edit in Char tab</small>
 </div>
 
 <div class="control-group">
-	<label class="control-label">Generation Params</label>
+	<div class="control-label">Generation Params</div>
 	<Slider label="Temperature" bind:value={llm.temperature} min={0} max={2} step={0.1} />
 	<Slider label="Max Tokens" bind:value={llm.maxTokens} min={100} max={4000} step={100} />
 </div>
 
 {#if isOllama}
 	<div class="control-group">
-		<label class="control-label">Ollama Options</label>
+		<div class="control-label">Ollama Options</div>
 		<Slider label="Context Window (num_ctx)" bind:value={llm.numCtx} min={512} max={131072} step={512} />
 		<div class="toggle-row">
 			<span>Flash Attention</span>
@@ -135,7 +135,7 @@
 {/if}
 
 <div class="control-group">
-	<label class="control-label">Quick Tips</label>
+	<div class="control-label">Quick Tips</div>
 	<div class="info-box">
 		<strong class="accent">Ollama (FREE):</strong> Run <code>ollama serve</code>. Set CORS origins to <code>*</code><br>
 		<strong class="accent">LM Studio (FREE):</strong> Start local server on port 1234. Enable CORS.<br>

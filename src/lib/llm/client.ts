@@ -1,6 +1,28 @@
-import { streamText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createOpenResponses } from '@ai-sdk/open-responses';
+type StreamTextFn = typeof import('ai').streamText;
+type CreateOpenAIFn = typeof import('@ai-sdk/openai').createOpenAI;
+type CreateOpenResponsesFn = typeof import('@ai-sdk/open-responses').createOpenResponses;
+
+type AiSdkRuntime = {
+	streamText: StreamTextFn;
+	createOpenAI: CreateOpenAIFn;
+	createOpenResponses: CreateOpenResponsesFn;
+};
+
+let aiSdkRuntimePromise: Promise<AiSdkRuntime> | null = null;
+async function loadAiSdkRuntime(): Promise<AiSdkRuntime> {
+	if (!aiSdkRuntimePromise) {
+		aiSdkRuntimePromise = Promise.all([
+			import('ai'),
+			import('@ai-sdk/openai'),
+			import('@ai-sdk/open-responses')
+		]).then(([aiModule, openaiModule, openResponsesModule]) => ({
+			streamText: aiModule.streamText,
+			createOpenAI: openaiModule.createOpenAI,
+			createOpenResponses: openResponsesModule.createOpenResponses
+		}));
+	}
+	return aiSdkRuntimePromise;
+}
 
 const OPENROUTER_REFERER = 'https://webwaifu.vercel.app';
 const OPENROUTER_TITLE = 'Webwaifu v3';
@@ -69,7 +91,7 @@ export class LlmClient {
 		}
 	}
 
-	_resolveModel() {
+	_resolveModel(aiSdk: AiSdkRuntime) {
 		if (!this.model) {
 			throw new Error('Select a model before generating a response.');
 		}
@@ -77,11 +99,11 @@ export class LlmClient {
 
 		switch (this.provider) {
 			case 'openai': {
-				const openai = createOpenAI({ apiKey: this.apiKey });
+				const openai = aiSdk.createOpenAI({ apiKey: this.apiKey });
 				return openai.responses(this.model);
 			}
 			case 'openrouter': {
-				const openrouter = createOpenResponses({
+				const openrouter = aiSdk.createOpenResponses({
 					name: 'openrouter',
 					url: 'https://openrouter.ai/api/v1/responses',
 					apiKey: this.apiKey,
@@ -94,7 +116,7 @@ export class LlmClient {
 			}
 			case 'ollama': {
 				const ollamaOpts = { num_ctx: this.numCtx, flash_attn: this.flashAttn, kv_cache_type: this.kvCacheType };
-				const ollama = createOpenResponses({
+				const ollama = aiSdk.createOpenResponses({
 					name: 'ollama',
 					url: `${this._getOllamaBaseUrl()}/v1/responses`,
 					fetch: async (url, init) => {
@@ -111,7 +133,7 @@ export class LlmClient {
 				return ollama(this.model);
 			}
 			case 'lmstudio': {
-				const lmstudio = createOpenResponses({
+				const lmstudio = aiSdk.createOpenResponses({
 					name: 'lmstudio',
 					url: `${this._getLmStudioBaseUrl()}/v1/responses`
 				});
@@ -138,12 +160,13 @@ export class LlmClient {
 		opts: { signal?: AbortSignal; collectFullResponse?: boolean; contextMessages?: ChatMessage[] } = {}
 	) {
 		const { signal, collectFullResponse = true, contextMessages } = opts;
-		const model = this._resolveModel();
+		const aiSdk = await loadAiSdkRuntime();
+		const model = this._resolveModel(aiSdk);
 		const messages: ChatMessage[] = contextMessages || this._buildMessages(userMessage);
 		let streamedText = '';
 
 		try {
-			const result = await streamText({
+			const result = await aiSdk.streamText({
 				model,
 				messages: messages as any,
 				temperature: this.temperature,
