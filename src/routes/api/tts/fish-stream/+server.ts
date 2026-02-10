@@ -3,6 +3,14 @@ import type { RequestHandler } from './$types';
 import { FishAudioClient, RealtimeEvents } from 'fish-audio';
 import type { Backends } from 'fish-audio';
 
+async function safeParseJson(request: Request) {
+	try {
+		return await request.json();
+	} catch {
+		return null;
+	}
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	const contentType = request.headers.get('content-type') || '';
 
@@ -18,7 +26,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
 /** Full text mode — receives all text at once, returns complete audio */
 async function handleFullText(request: Request): Promise<Response> {
-	const body = await request.json();
+	const body = await safeParseJson(request);
+	if (!body || typeof body !== 'object') {
+		return json({ error: 'Invalid JSON body' }, { status: 400 });
+	}
+
 	const { text, apiKey, referenceId, model, format, latency } = body;
 
 	if (!text || !apiKey) {

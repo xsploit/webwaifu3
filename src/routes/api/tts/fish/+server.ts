@@ -2,12 +2,26 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { FishAudioClient } from 'fish-audio';
 
+async function safeParseJson(request: Request) {
+	try {
+		return await request.json();
+	} catch {
+		return null;
+	}
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	const contentType = request.headers.get('content-type') || '';
 
 	// Handle file upload for voice creation (multipart)
 	if (contentType.includes('multipart/form-data')) {
-		const formData = await request.formData();
+		let formData: FormData;
+		try {
+			formData = await request.formData();
+		} catch {
+			return json({ error: 'Invalid multipart form data' }, { status: 400 });
+		}
+
 		const apiKey = formData.get('apiKey') as string;
 		const title = formData.get('title') as string;
 		const file = formData.get('voice') as File | null;
@@ -33,8 +47,15 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 	}
 
+	if (!contentType.includes('application/json')) {
+		return json({ error: 'Unsupported content-type, expected application/json or multipart/form-data' }, { status: 415 });
+	}
+
 	// JSON body actions
-	const body = await request.json();
+	const body = await safeParseJson(request);
+	if (!body || typeof body !== 'object') {
+		return json({ error: 'Invalid JSON body' }, { status: 400 });
+	}
 
 	// List models (user's own)
 	if (body.action === 'list-models') {
@@ -141,6 +162,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			}
 		});
 	} catch (err: any) {
-		return json({ error: err.message || 'Fish Audio TTS failed' }, { status: 500 });
+		const message = err?.message || 'Fish Audio TTS failed';
+		const status = /(?:^|\\s|:)429(?:\\b|$)/.test(message) ? 429 : 500;
+		return json({ error: message }, { status });
 	}
 };

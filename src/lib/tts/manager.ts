@@ -493,7 +493,13 @@ export class TtsManager {
 				totalSize += value.length;
 			}
 			console.log(`[TtsManager] Fish stream received: ${(totalSize / 1024).toFixed(1)}KB in ${chunks.length} chunks`);
-			return new Blob(chunks, { type: 'audio/mpeg' });
+			const blobParts: BlobPart[] = chunks.map((chunk) => {
+				// Copy into a standard ArrayBuffer-backed view to satisfy strict BlobPart typing.
+				const copy = new Uint8Array(chunk.byteLength);
+				copy.set(chunk);
+				return copy;
+			});
+			return new Blob(blobParts, { type: 'audio/mpeg' });
 		});
 	}
 
