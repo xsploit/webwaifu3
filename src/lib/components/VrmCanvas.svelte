@@ -188,7 +188,7 @@
 			// Auto-start animation sequencer on VRM load
 			setTimeout(() => {
 				if (vrmState.vrm === vrm) {
-					window.dispatchEvent(new CustomEvent('nethoe:sequencer-start'));
+					window.dispatchEvent(new CustomEvent('webwaifu3:sequencer-start'));
 				}
 			}, 500);
 		} catch (err: any) {
@@ -259,3 +259,5 @@
 		display: block;
 	}
 </style>
+
+

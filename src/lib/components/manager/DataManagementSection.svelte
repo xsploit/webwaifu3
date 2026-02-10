@@ -28,7 +28,7 @@
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = `nethoe-backup-${new Date().toISOString().split('T')[0]}.json`;
+			a.download = `WEBWAIFU 3-backup-${new Date().toISOString().split('T')[0]}.json`;
 			a.click();
 			URL.revokeObjectURL(url);
 			statusMsg = 'Export complete!';
@@ -255,3 +255,4 @@
 		border-left: 2px solid var(--c-text-accent);
 	}
 </style>
+

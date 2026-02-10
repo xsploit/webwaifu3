@@ -9,6 +9,7 @@ env.allowLocalModels = false;
 let transcriber: AutomaticSpeechRecognitionPipeline | null = null;
 let isInitializing = false;
 const MODEL_NAME = 'Xenova/whisper-tiny.en';
+const DTYPE_PREFERENCES = ['q4', 'q8'] as const;
 const createAsrPipeline = pipeline as unknown as (
 	task: 'automatic-speech-recognition',
 	model: string,
@@ -22,10 +23,23 @@ async function initializeWhisperModel() {
 	console.log('[Worker] Initializing Whisper model...');
 
 	try {
-		transcriber = await createAsrPipeline('automatic-speech-recognition', MODEL_NAME, {
-			// @ts-ignore - cache option
-			cache: 'force-cache'
-		});
+		let lastError: unknown = null;
+		for (const dtype of DTYPE_PREFERENCES) {
+			try {
+				transcriber = await createAsrPipeline('automatic-speech-recognition', MODEL_NAME, {
+					// @ts-ignore - cache option
+					cache: 'force-cache',
+					device: 'wasm',
+					dtype
+				});
+				console.log(`[Worker] Whisper loaded with dtype=${dtype}`);
+				break;
+			} catch (err) {
+				lastError = err;
+				console.warn(`[Worker] Whisper dtype=${dtype} unavailable, trying fallback`, err);
+			}
+		}
+		if (!transcriber) throw lastError instanceof Error ? lastError : new Error('Failed to load Whisper model');
 
 		console.log('[Worker] Whisper model loaded');
 		self.postMessage({ type: 'model-ready', success: true, modelName: MODEL_NAME });

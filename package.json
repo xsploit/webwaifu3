@@ -1,5 +1,5 @@
 {
-	"name": "nethoe",
+	"name": "webwaifu3",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
@@ -36,3 +36,4 @@
 		"three": "^0.182.0"
 	}
 }
+

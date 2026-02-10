@@ -25,7 +25,7 @@ async function loadAiSdkRuntime(): Promise<AiSdkRuntime> {
 }
 
 const OPENROUTER_REFERER = 'https://webwaifu.vercel.app';
-const OPENROUTER_TITLE = 'Webwaifu v3';
+const OPENROUTER_TITLE = 'WEBWAIFU 3';
 
 export type LlmProvider = 'ollama' | 'lmstudio' | 'openai' | 'openrouter';
 
@@ -270,3 +270,4 @@ export function getLlmClient() {
 	if (!instance) instance = new LlmClient();
 	return instance;
 }
+

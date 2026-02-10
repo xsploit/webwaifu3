@@ -8,6 +8,7 @@ env.allowLocalModels = false;
 let embedder: FeatureExtractionPipeline | null = null;
 let isInitializing = false;
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
+const DTYPE_PREFERENCES = ['q4', 'q8'] as const;
 const createFeatureExtractionPipeline = pipeline as unknown as (
 	task: 'feature-extraction',
 	model: string,
@@ -21,10 +22,23 @@ async function initializeModel() {
 	console.log('[EmbeddingWorker] Loading model:', MODEL_NAME);
 
 	try {
-		embedder = await createFeatureExtractionPipeline('feature-extraction', MODEL_NAME, {
-			// @ts-ignore - cache option
-			cache: 'force-cache'
-		});
+		let lastError: unknown = null;
+		for (const dtype of DTYPE_PREFERENCES) {
+			try {
+				embedder = await createFeatureExtractionPipeline('feature-extraction', MODEL_NAME, {
+					// @ts-ignore - cache option
+					cache: 'force-cache',
+					device: 'wasm',
+					dtype
+				});
+				console.log(`[EmbeddingWorker] Loaded with dtype=${dtype}`);
+				break;
+			} catch (err) {
+				lastError = err;
+				console.warn(`[EmbeddingWorker] dtype=${dtype} unavailable, trying fallback`, err);
+			}
+		}
+		if (!embedder) throw lastError instanceof Error ? lastError : new Error('Failed to load embedding model');
 
 		console.log('[EmbeddingWorker] Model loaded');
 		self.postMessage({ type: 'model-ready', success: true, modelName: MODEL_NAME });

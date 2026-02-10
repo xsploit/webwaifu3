@@ -14,13 +14,13 @@
 		if (file) {
 			const url = URL.createObjectURL(file);
 			file.arrayBuffer().then(data => {
-				window.dispatchEvent(new CustomEvent('nethoe:load-vrm', { detail: { url, fileData: data } }));
+				window.dispatchEvent(new CustomEvent('webwaifu3:load-vrm', { detail: { url, fileData: data } }));
 			});
 		}
 	}
 
 	function loadSample() {
-		window.dispatchEvent(new CustomEvent('nethoe:load-vrm', { detail: { url: '/assets/hikkyc2.vrm' } }));
+		window.dispatchEvent(new CustomEvent('webwaifu3:load-vrm', { detail: { url: '/assets/hikkyc2.vrm' } }));
 	}
 
 	function toggleRealistic(checked: boolean) {
@@ -29,11 +29,11 @@
 	}
 
 	function togglePass(name: string, checked: boolean) {
-		window.dispatchEvent(new CustomEvent('nethoe:toggle-pass', { detail: { name, enabled: checked } }));
+		window.dispatchEvent(new CustomEvent('webwaifu3:toggle-pass', { detail: { name, enabled: checked } }));
 	}
 
 	function updatePassUniform(name: string, uniform: string, value: number) {
-		window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name, uniform, value } }));
+		window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name, uniform, value } }));
 	}
 </script>
 
@@ -100,11 +100,11 @@
 
 <div class="control-group">
 	<div class="control-label">Lighting Controls</div>
-	<Slider label="Key Light" bind:value={vis.keyLight} min={0} max={3} step={0.1} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'key', value: v } }))} />
-	<Slider label="Fill Light" bind:value={vis.fillLight} min={0} max={2} step={0.1} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'fill', value: v } }))} />
-	<Slider label="Rim Light" bind:value={vis.rimLight} min={0} max={2} step={0.05} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'rim', value: v } }))} />
-	<Slider label="Hemi Light" bind:value={vis.hemiLight} min={0} max={2} step={0.05} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'hemi', value: v } }))} />
-	<Slider label="Ambient Light" bind:value={vis.ambientLight} min={0} max={2} step={0.05} oninput={(v) => window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'ambient', value: v } }))} />
+	<Slider label="Key Light" bind:value={vis.keyLight} min={0} max={3} step={0.1} oninput={(v) => window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'key', value: v } }))} />
+	<Slider label="Fill Light" bind:value={vis.fillLight} min={0} max={2} step={0.1} oninput={(v) => window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'fill', value: v } }))} />
+	<Slider label="Rim Light" bind:value={vis.rimLight} min={0} max={2} step={0.05} oninput={(v) => window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'rim', value: v } }))} />
+	<Slider label="Hemi Light" bind:value={vis.hemiLight} min={0} max={2} step={0.05} oninput={(v) => window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'hemi', value: v } }))} />
+	<Slider label="Ambient Light" bind:value={vis.ambientLight} min={0} max={2} step={0.05} oninput={(v) => window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'ambient', value: v } }))} />
 </div>
 
 <style>
@@ -120,3 +120,5 @@
 	.btn-tech.secondary { border-color: var(--c-border); color: var(--text-muted); }
 	.btn-tech.secondary:hover { border-color: var(--text-main); color: var(--text-main); background: transparent; }
 </style>
+
+

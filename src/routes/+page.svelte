@@ -287,28 +287,28 @@
 							taa: visuals.taa, bleach: visuals.bleach, colorCorrection: visuals.colorCorr
 						};
 						for (const [name, enabled] of Object.entries(passToggles)) {
-							window.dispatchEvent(new CustomEvent('nethoe:toggle-pass', { detail: { name, enabled } }));
+							window.dispatchEvent(new CustomEvent('webwaifu3:toggle-pass', { detail: { name, enabled } }));
 						}
 						// Shader uniforms
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'bloom', uniform: 'strength', value: visuals.bloomStrength } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'bloom', uniform: 'radius', value: visuals.bloomRadius } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'bloom', uniform: 'threshold', value: visuals.bloomThreshold } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'chromatic', uniform: 'amount', value: visuals.chromaAmount } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'chromatic', uniform: 'angle', value: visuals.chromaAngle } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'grain', uniform: 'grainAmount', value: visuals.grainAmount } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'grain', uniform: 'vignetteAmount', value: visuals.vignetteAmount } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'grain', uniform: 'vignetteHardness', value: visuals.vignetteHardness } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'bleach', uniform: 'opacity', value: visuals.bleachOpacity } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powR', value: visuals.colorPowR } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powG', value: visuals.colorPowG } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powB', value: visuals.colorPowB } }));
-						window.dispatchEvent(new CustomEvent('nethoe:pass-uniform', { detail: { name: 'taa', uniform: 'sampleLevel', value: visuals.taaSampleLevel } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bloom', uniform: 'strength', value: visuals.bloomStrength } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bloom', uniform: 'radius', value: visuals.bloomRadius } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bloom', uniform: 'threshold', value: visuals.bloomThreshold } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'chromatic', uniform: 'amount', value: visuals.chromaAmount } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'chromatic', uniform: 'angle', value: visuals.chromaAngle } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'grain', uniform: 'grainAmount', value: visuals.grainAmount } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'grain', uniform: 'vignetteAmount', value: visuals.vignetteAmount } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'grain', uniform: 'vignetteHardness', value: visuals.vignetteHardness } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'bleach', uniform: 'opacity', value: visuals.bleachOpacity } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powR', value: visuals.colorPowR } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powG', value: visuals.colorPowG } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'colorCorrection', uniform: 'powB', value: visuals.colorPowB } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:pass-uniform', { detail: { name: 'taa', uniform: 'sampleLevel', value: visuals.taaSampleLevel } }));
 						// Lighting
-						window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'key', value: visuals.keyLight } }));
-						window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'fill', value: visuals.fillLight } }));
-						window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'rim', value: visuals.rimLight } }));
-						window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'hemi', value: visuals.hemiLight } }));
-						window.dispatchEvent(new CustomEvent('nethoe:light', { detail: { light: 'ambient', value: visuals.ambientLight } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'key', value: visuals.keyLight } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'fill', value: visuals.fillLight } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'rim', value: visuals.rimLight } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'hemi', value: visuals.hemiLight } }));
+						window.dispatchEvent(new CustomEvent('webwaifu3:light', { detail: { light: 'ambient', value: visuals.ambientLight } }));
 					}, 100);
 				}
 
@@ -555,26 +555,26 @@
 			vrmCanvas?.loadAnimationFromUrl(url);
 		}
 
-		window.addEventListener('nethoe:load-vrm', onLoadVrm);
-		window.addEventListener('nethoe:load-anim', onLoadAnim);
-		window.addEventListener('nethoe:toggle-pass', onTogglePass);
-		window.addEventListener('nethoe:pass-uniform', onPassUniform);
-		window.addEventListener('nethoe:light', onLight);
-		window.addEventListener('nethoe:sequencer-start', onSeqStart);
-		window.addEventListener('nethoe:sequencer-stop', onSeqStop);
-		window.addEventListener('nethoe:sequencer-play-one', onSeqPlayOne);
+		window.addEventListener('webwaifu3:load-vrm', onLoadVrm);
+		window.addEventListener('webwaifu3:load-anim', onLoadAnim);
+		window.addEventListener('webwaifu3:toggle-pass', onTogglePass);
+		window.addEventListener('webwaifu3:pass-uniform', onPassUniform);
+		window.addEventListener('webwaifu3:light', onLight);
+		window.addEventListener('webwaifu3:sequencer-start', onSeqStart);
+		window.addEventListener('webwaifu3:sequencer-stop', onSeqStop);
+		window.addEventListener('webwaifu3:sequencer-play-one', onSeqPlayOne);
 
-		toast('Webwaifu v3 initialized');
+		toast('WEBWAIFU 3 initialized');
 
 		return () => {
-			window.removeEventListener('nethoe:load-vrm', onLoadVrm);
-			window.removeEventListener('nethoe:load-anim', onLoadAnim);
-			window.removeEventListener('nethoe:toggle-pass', onTogglePass);
-			window.removeEventListener('nethoe:pass-uniform', onPassUniform);
-			window.removeEventListener('nethoe:light', onLight);
-			window.removeEventListener('nethoe:sequencer-start', onSeqStart);
-			window.removeEventListener('nethoe:sequencer-stop', onSeqStop);
-			window.removeEventListener('nethoe:sequencer-play-one', onSeqPlayOne);
+			window.removeEventListener('webwaifu3:load-vrm', onLoadVrm);
+			window.removeEventListener('webwaifu3:load-anim', onLoadAnim);
+			window.removeEventListener('webwaifu3:toggle-pass', onTogglePass);
+			window.removeEventListener('webwaifu3:pass-uniform', onPassUniform);
+			window.removeEventListener('webwaifu3:light', onLight);
+			window.removeEventListener('webwaifu3:sequencer-start', onSeqStart);
+			window.removeEventListener('webwaifu3:sequencer-stop', onSeqStop);
+			window.removeEventListener('webwaifu3:sequencer-play-one', onSeqPlayOne);
 			sequencer.stop();
 			revokeBlobUrl(vrmState.vrmUrl);
 		};
@@ -704,7 +704,7 @@
 </script>
 
 <svelte:head>
-	<title>Webwaifu v3 | VRM Companion</title>
+	<title>WEBWAIFU 3 | VRM Companion</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -760,3 +760,5 @@
 		transform: scale(1.05);
 	}
 </style>
+
+

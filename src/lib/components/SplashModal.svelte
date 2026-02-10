@@ -5,7 +5,7 @@
 	function dismiss() {
 		if (!accepted) return;
 		visible = false;
-		window.dispatchEvent(new CustomEvent('nethoe:splash-accepted'));
+		window.dispatchEvent(new CustomEvent('webwaifu3:splash-accepted'));
 	}
 </script>
 
@@ -13,14 +13,14 @@
 	<div class="splash-overlay">
 		<div class="splash-modal" role="dialog" aria-modal="true" aria-labelledby="splash-title">
 			<div class="splash-header">
-				<h1 class="splash-title" id="splash-title">NETHOE</h1>
+				<h1 class="splash-title" id="splash-title">WEBWAIFU 3</h1>
 				<span class="splash-sub">VRM Companion Engine</span>
 			</div>
 
 			<div class="splash-body">
 				<section class="splash-section">
 					<h2>What is this?</h2>
-					<p>NetHoe is a browser-based VRM avatar companion powered by local or cloud AI. Chat with your 3D character using text or voice, with real-time lip sync and animations.</p>
+					<p>WEBWAIFU 3 is a browser-based VRM avatar companion powered by local or cloud AI. Chat with your 3D character using text or voice, with real-time lip sync and animations.</p>
 				</section>
 
 				<section class="splash-section warn">
@@ -58,7 +58,7 @@
 				<label class="splash-ack-row">
 					<input type="checkbox" bind:checked={accepted} />
 					<span>
-						I agree / I accept that NetHoe needs either local AI (Ollama or LM Studio) or cloud API keys (OpenAI/OpenRouter) to generate responses.
+						I agree / I accept that WEBWAIFU 3 needs either local AI (Ollama or LM Studio) or cloud API keys (OpenAI/OpenRouter) to generate responses.
 					</span>
 				</label>
 			</div>
@@ -168,3 +168,5 @@
 	.splash-modal::-webkit-scrollbar-track { background: transparent; }
 	.splash-modal::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.2); }
 </style>
+
+

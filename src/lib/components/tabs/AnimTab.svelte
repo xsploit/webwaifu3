@@ -13,14 +13,14 @@
 
 	function playOne(index: number) {
 		const entry = seq.playlist[index];
-		window.dispatchEvent(new CustomEvent('nethoe:sequencer-play-one', { detail: { url: entry.url, index } }));
+		window.dispatchEvent(new CustomEvent('webwaifu3:sequencer-play-one', { detail: { url: entry.url, index } }));
 	}
 
 	function toggleAutoPlay() {
 		if (seq.playing) {
-			window.dispatchEvent(new CustomEvent('nethoe:sequencer-stop'));
+			window.dispatchEvent(new CustomEvent('webwaifu3:sequencer-stop'));
 		} else {
-			window.dispatchEvent(new CustomEvent('nethoe:sequencer-start'));
+			window.dispatchEvent(new CustomEvent('webwaifu3:sequencer-start'));
 		}
 	}
 
@@ -235,3 +235,5 @@
 	}
 	.play-btn:hover { color: var(--c-text-accent); }
 </style>
+
+

@@ -1,8 +1,8 @@
-# NetHoe
+# WEBWAIFU 3
 
 **Browser-based VRM avatar companion with AI chat, text-to-speech, speech-to-text, semantic memory, and real-time 3D animations.**
 
-NetHoe runs entirely in your browser. Load any VRM model, connect a local or cloud LLM, and have a conversation with your 3D companion complete with lip sync, idle animations, and post-processing effects.
+WEBWAIFU 3 runs entirely in your browser. Load any VRM model, connect a local or cloud LLM, and have a conversation with your 3D companion complete with lip sync, idle animations, and post-processing effects.
 
 ---
 
@@ -83,7 +83,7 @@ Opens on `https://localhost:5173` (HTTPS via `@vitejs/plugin-basic-ssl` for HTTP
 
 ### Ollama Setup
 
-Ollama needs two things to work with NetHoe:
+Ollama needs two things to work with WEBWAIFU 3:
 
 **1. Allow network access** — In Ollama's system tray settings, enable **"Allow through network"**.
 
@@ -198,3 +198,4 @@ Use any Node.js hosting. Switch adapter in `svelte.config.js` as needed (e.g., `
 ## License
 
 MIT
+

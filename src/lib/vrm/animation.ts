@@ -140,6 +140,9 @@ export async function loadMixamoAnimation(
 					)
 				);
 			} else if (track instanceof THREE.VectorKeyframeTrack) {
+				// Only retarget hips translation; other positional tracks cause skeleton drift on many VRMs.
+				if (vrmBoneName !== 'hips') return;
+
 				// Compute position as delta from Mixamo rest pose, scaled, then offset to VRM rest
 				// This prevents animations with different rest hips heights from pushing the VRM up
 				const vrmNode = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName);
@@ -156,6 +159,9 @@ export async function loadMixamoAnimation(
 					let dy = track.values[i + 1] - mixRestY;
 					let dz = track.values[i + 2] - mixRestZ;
 					if (vrm.meta?.metaVersion === '0') { dx = -dx; dz = -dz; }
+					// Lock horizontal root motion so looped clips stay centered in the scene.
+					dx = 0;
+					dz = 0;
 					value[i] = vrmRestX + dx * hipsPositionScale;
 					value[i + 1] = vrmRestY + dy * hipsPositionScale;
 					value[i + 2] = vrmRestZ + dz * hipsPositionScale;

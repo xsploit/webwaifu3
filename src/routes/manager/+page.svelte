@@ -154,13 +154,13 @@
 </script>
 
 <svelte:head>
-	<title>Waifu Manager | NetHoe</title>
+	<title>Waifu Manager | WEBWAIFU 3</title>
 </svelte:head>
 
 <div class="manager-page">
 	<header class="manager-header">
 		<div class="header-left">
-			<h1 class="title">NETHOE</h1>
+			<h1 class="title">WEBWAIFU 3</h1>
 			<span class="subtitle">// WAIFU MANAGER</span>
 		</div>
 		<a href="/" class="back-link">&larr; Back to App</a>
@@ -277,3 +277,4 @@
 		.subtitle { font-size: 0.6rem; }
 	}
 </style>
+

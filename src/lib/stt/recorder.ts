@@ -4,6 +4,8 @@ export class SttRecorder {
 	private audioContext: AudioContext | null = null;
 	private sourceNode: MediaStreamAudioSourceNode | null = null;
 	private processorNode: ScriptProcessorNode | null = null;
+	private workletNode: AudioWorkletNode | null = null;
+	private silenceNode: GainNode | null = null;
 	private audioChunks: Float32Array[] = [];
 	private recording = false;
 	private modelReady = false;
@@ -14,6 +16,54 @@ export class SttRecorder {
 	onModelError: ((error: string) => void) | null = null;
 	onTranscript: ((text: string) => void) | null = null;
 	onError: ((error: string) => void) | null = null;
+
+	private appendAudioChunk(chunk: Float32Array | ArrayBuffer) {
+		if (!this.recording) return;
+		const copy = chunk instanceof Float32Array ? chunk : new Float32Array(chunk);
+		this.audioChunks.push(copy);
+	}
+
+	private setupScriptProcessorFallback() {
+		if (!this.audioContext || !this.sourceNode) return;
+		this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
+		this.processorNode.onaudioprocess = (e) => {
+			this.appendAudioChunk(new Float32Array(e.inputBuffer.getChannelData(0)));
+		};
+		this.sourceNode.connect(this.processorNode);
+		this.processorNode.connect(this.audioContext.destination);
+	}
+
+	private async setupCaptureNode() {
+		if (!this.audioContext || !this.sourceNode) return;
+		try {
+			if (typeof AudioWorkletNode === 'undefined' || !this.audioContext.audioWorklet) {
+				this.setupScriptProcessorFallback();
+				return;
+			}
+			await this.audioContext.audioWorklet.addModule(new URL('./stt-capture.worklet.js', import.meta.url));
+			this.workletNode = new AudioWorkletNode(this.audioContext, 'stt-capture-processor', {
+				numberOfInputs: 1,
+				numberOfOutputs: 1,
+				outputChannelCount: [1]
+			});
+			this.workletNode.port.onmessage = (e: MessageEvent) => {
+				const chunk = e.data;
+				if (chunk instanceof Float32Array || chunk instanceof ArrayBuffer) {
+					this.appendAudioChunk(chunk);
+				}
+			};
+			// Keep capture graph active without audible playback.
+			this.silenceNode = this.audioContext.createGain();
+			this.silenceNode.gain.value = 0;
+			this.sourceNode.connect(this.workletNode);
+			this.workletNode.connect(this.silenceNode);
+			this.silenceNode.connect(this.audioContext.destination);
+		} catch {
+			this.workletNode = null;
+			this.silenceNode = null;
+			this.setupScriptProcessorFallback();
+		}
+	}
 
 	async initialize() {
 		if (this.worker) return; // Already initialized — don't create duplicate workers
@@ -92,18 +142,8 @@ export class SttRecorder {
 
 			this.audioContext = new AudioContext({ sampleRate: 16000 });
 			this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
-			this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
 			this.audioChunks = [];
-
-			this.processorNode.onaudioprocess = (e) => {
-				if (this.recording) {
-					const data = e.inputBuffer.getChannelData(0);
-					this.audioChunks.push(new Float32Array(data));
-				}
-			};
-
-			this.sourceNode.connect(this.processorNode);
-			this.processorNode.connect(this.audioContext.destination);
+			await this.setupCaptureNode();
 			this.recording = true;
 		} catch (err: any) {
 			this.onError?.('Microphone access denied: ' + err.message);
@@ -116,8 +156,11 @@ export class SttRecorder {
 
 		// Stop media tracks
 		this.stream?.getTracks().forEach((t) => t.stop());
-		this.processorNode?.disconnect();
 		this.sourceNode?.disconnect();
+		this.workletNode?.disconnect();
+		this.workletNode?.port.close();
+		this.silenceNode?.disconnect();
+		this.processorNode?.disconnect();
 
 		if (this.audioContext && this.audioContext.state !== 'closed') {
 			await this.audioContext.close();
@@ -125,6 +168,8 @@ export class SttRecorder {
 
 		this.stream = null;
 		this.sourceNode = null;
+		this.workletNode = null;
+		this.silenceNode = null;
 		this.processorNode = null;
 		this.audioContext = null;
 
@@ -179,6 +224,8 @@ export class SttRecorder {
 			this.audioContext.close().catch(() => {});
 		}
 		this.audioContext = null;
+		this.workletNode = null;
+		this.silenceNode = null;
 		this.processorNode = null;
 		this.sourceNode = null;
 		this.stream = null;

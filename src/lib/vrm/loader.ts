@@ -52,7 +52,7 @@ export function makePhysicalFrom(
 	const color =
 		oldMat.color && oldMat.color.clone ? oldMat.color.clone() : new THREE.Color(0.9, 0.85, 0.82);
 
-	return new THREE.MeshPhysicalMaterial({
+	const params: THREE.MeshPhysicalMaterialParameters = {
 		map: map || undefined,
 		normalMap: normalMap || undefined,
 		color: map ? 0xffffff : color,
@@ -63,7 +63,6 @@ export function makePhysicalFrom(
 		metalness: 0.0,
 		transmission: 0.0,
 		thickness: 0.0,
-		envMap: envMap || undefined,
 		envMapIntensity: envMap ? 1.0 : 0.0,
 		clearcoat: envMap ? 0.3 : 0.0,
 		clearcoatRoughness: 0.4,
@@ -72,7 +71,11 @@ export function makePhysicalFrom(
 		depthWrite: oldMat.depthWrite !== undefined ? oldMat.depthWrite : true,
 		transparent: !!oldMat.transparent,
 		alphaTest: oldMat.alphaTest !== undefined ? oldMat.alphaTest : 0
-	});
+	};
+	// Only set envMap when present; passing undefined triggers a Three.js warning.
+	if (envMap) params.envMap = envMap;
+
+	return new THREE.MeshPhysicalMaterial(params);
 }
 
 export function setRealisticMode(

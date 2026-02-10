@@ -179,7 +179,7 @@
 			}
 		};
 		window.addEventListener('kokoro-tts-status', onStatus as EventListener);
-		ttsManager.initKokoroInWorker({ dtype: 'q8', device: null });
+		ttsManager.initKokoroInWorker({ dtype: 'q4', device: null });
 	}
 
 	async function testVoice() {
