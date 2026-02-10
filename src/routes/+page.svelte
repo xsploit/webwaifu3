@@ -64,6 +64,17 @@
 		return null;
 	}
 
+	async function loadAndCommitVrm(url: string): Promise<boolean> {
+		const previousUrl = vrmState.vrmUrl;
+		const loaded = await vrmCanvas?.loadVrmFromUrl(url);
+		if (!loaded) return false;
+		if (previousUrl !== url) {
+			revokeBlobUrl(previousUrl);
+		}
+		vrmState.vrmUrl = url;
+		return true;
+	}
+
 	// Initialize playlist on first load
 	if (seqState.playlist.length === 0) {
 		seqState.playlist = DEFAULT_ANIMATIONS.map(a => ({ ...a }));
@@ -199,14 +210,14 @@
 					llmSettings.model = d.model ?? llmSettings.model;
 				}
 				if (state.tts) {
-					ttsSettings.provider = state.tts.provider;
-					ttsSettings.kokoroVoice = state.tts.kokoroVoice;
-					ttsSettings.fishVoiceId = state.tts.fishVoiceId;
-					ttsSettings.fishLatency = state.tts.fishLatency;
-					if (state.tts.fishApiKey) ttsSettings.fishApiKey = state.tts.fishApiKey;
-					ttsSettings.enabled = state.tts.enabled;
-					if (state.tts.fishModel) ttsSettings.fishModel = state.tts.fishModel;
-					if (state.tts.fishSavedVoices?.length) ttsSettings.fishSavedVoices = state.tts.fishSavedVoices;
+					ttsSettings.provider = state.tts.provider ?? ttsSettings.provider;
+					ttsSettings.kokoroVoice = state.tts.kokoroVoice ?? ttsSettings.kokoroVoice;
+					ttsSettings.fishVoiceId = state.tts.fishVoiceId ?? '';
+					ttsSettings.fishLatency = state.tts.fishLatency ?? ttsSettings.fishLatency;
+					ttsSettings.fishApiKey = state.tts.fishApiKey ?? '';
+					ttsSettings.enabled = state.tts.enabled ?? ttsSettings.enabled;
+					ttsSettings.fishModel = state.tts.fishModel ?? ttsSettings.fishModel;
+					ttsSettings.fishSavedVoices = state.tts.fishSavedVoices ?? [];
 				}
 				if (state.stt) {
 					sttState.enabled = state.stt.enabled;
@@ -236,6 +247,14 @@
 					seqState.duration = state.sequencer.duration;
 					seqState.shuffle = state.sequencer.shuffle;
 					seqState.loop = state.sequencer.loop;
+				}
+				if (state.ui) {
+					if (state.ui.settingsPanelOpen !== undefined) {
+						panel.open = !!state.ui.settingsPanelOpen;
+					}
+					if (typeof state.ui.activeTab === 'string' && state.ui.activeTab.trim().length > 0) {
+						panel.activeTab = state.ui.activeTab;
+					}
 				}
 
 				// Restore visual settings (post-processing, shaders, lighting)
@@ -395,27 +414,24 @@
 					if (fileData) {
 						const blob = new Blob([fileData], { type: 'application/octet-stream' });
 						const blobUrl = URL.createObjectURL(blob);
-						revokeBlobUrl(vrmState.vrmUrl);
-						vrmCanvas?.loadVrmFromUrl(blobUrl);
-						vrmState.vrmUrl = blobUrl;
+						const loaded = await loadAndCommitVrm(blobUrl);
+						if (!loaded) {
+							revokeBlobUrl(blobUrl);
+							await loadAndCommitVrm('/assets/hikkyc2.vrm');
+						}
 					} else {
-						revokeBlobUrl(vrmState.vrmUrl);
-						vrmCanvas?.loadVrmFromUrl('/assets/hikkyc2.vrm');
-						vrmState.vrmUrl = '/assets/hikkyc2.vrm';
+						await loadAndCommitVrm('/assets/hikkyc2.vrm');
 					}
 				} else {
-					if (savedVrmUrl !== vrmState.vrmUrl) {
-						revokeBlobUrl(vrmState.vrmUrl);
+					const loaded = await loadAndCommitVrm(savedVrmUrl);
+					if (!loaded) {
+						await loadAndCommitVrm('/assets/hikkyc2.vrm');
 					}
-					vrmCanvas?.loadVrmFromUrl(savedVrmUrl);
-					vrmState.vrmUrl = savedVrmUrl;
 				}
 			} catch (e) {
 				console.error('Failed to load settings:', e);
 				// Fallback: load default VRM
-				revokeBlobUrl(vrmState.vrmUrl);
-				vrmCanvas?.loadVrmFromUrl('/assets/hikkyc2.vrm');
-				vrmState.vrmUrl = '/assets/hikkyc2.vrm';
+				await loadAndCommitVrm('/assets/hikkyc2.vrm');
 			}
 			// Auto-fetch models for configured providers
 			if (models.models.length === 0) {
@@ -435,34 +451,35 @@
 		});
 
 		// Wire up custom events from VrmTab/AnimTab to VrmCanvas
-		function onLoadVrm(e: Event) {
+		async function onLoadVrm(e: Event) {
 			// Stop sequencer when loading new VRM
 			sequencer.stop();
 			seqState.playing = false;
 			seqState.currentIndex = -1;
 			const detail = (e as CustomEvent).detail;
 			const url = typeof detail === 'string' ? detail : detail.url;
-			const fileData: ArrayBuffer | undefined = detail.fileData;
-			const previousUrl = vrmState.vrmUrl;
-			vrmCanvas?.loadVrmFromUrl(url).then(() => {
-				// Only revoke old blob after new VRM loaded successfully
-				if (previousUrl !== url) {
-					revokeBlobUrl(previousUrl);
+			const fileData: ArrayBuffer | undefined = typeof detail === 'string' ? undefined : detail.fileData;
+
+			try {
+				const loaded = await loadAndCommitVrm(url);
+				if (!loaded) {
+					if (url.startsWith('blob:')) revokeBlobUrl(url);
+					return;
 				}
-				vrmState.vrmUrl = url;
 
 				// Persist VRM choice
 				if (fileData) {
-					storage.saveVrmFile(fileData);
-					storage.setSetting('vrmUrl', 'idb://vrmFile');
+					await storage.saveVrmFile(fileData);
+					await storage.setSetting('vrmUrl', 'idb://vrmFile');
 				} else {
-					storage.clearVrmFile();
-					storage.setSetting('vrmUrl', url);
+					await storage.clearVrmFile();
+					await storage.setSetting('vrmUrl', url);
 				}
-			}).catch((err) => {
+			} catch (err) {
 				console.error('[VRM] Failed to load:', err);
 				toast('Failed to load VRM model');
-			});
+				if (url.startsWith('blob:')) revokeBlobUrl(url);
+			}
 		}
 
 		function onLoadAnim(e: Event) {
@@ -646,6 +663,10 @@
 				keyLight: visuals.keyLight, fillLight: visuals.fillLight, rimLight: visuals.rimLight,
 				hemiLight: visuals.hemiLight, ambientLight: visuals.ambientLight
 			},
+			ui: {
+				settingsPanelOpen: panel.open,
+				activeTab: panel.activeTab
+			},
 			playlistEnabled,
 			character: chars.current,
 			memory: {
@@ -763,5 +784,4 @@
 		transform: scale(1.05);
 	}
 </style>
-
 
