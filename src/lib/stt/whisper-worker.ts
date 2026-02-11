@@ -64,10 +64,27 @@ async function processAudioTranscription(
 		stride_length_s: options.stride_length_s || 2
 	});
 
-	const text = Array.isArray(output) ? output[0]?.text?.trim() ?? '' : (output as any).text?.trim() ?? '';
+	const rawText = Array.isArray(output) ? output[0]?.text?.trim() ?? '' : (output as any).text?.trim() ?? '';
+	const text = sanitizeTranscript(rawText);
 	console.log('[Worker] Transcription result:', text || '(empty)');
 
 	return { success: true, transcript: text, raw: output };
+}
+
+function sanitizeTranscript(text: string): string {
+	const normalized = text.replace(/\s+/g, ' ').trim();
+	if (!normalized) return '';
+
+	// Guard obvious Whisper failure mode: extremely long repeated character runs (e.g., "PPPPPP...")
+	if (/(.)\1{24,}/.test(normalized)) return '';
+
+	const collapsed = normalized.replace(/\s+/g, '');
+	if (collapsed.length >= 32) {
+		const unique = new Set(collapsed.toLowerCase());
+		if (unique.size <= 2) return '';
+	}
+
+	return normalized;
 }
 
 self.addEventListener('message', async (event: MessageEvent) => {

@@ -96,6 +96,16 @@
 		chat.history = [...chat.history, { role: 'user', content: message }];
 		chat.isGenerating = true;
 		addLog(`User: ${message.slice(0, 60)}...`, 'info');
+		let turnConversationId: number | null = null;
+
+		try {
+			const savedId = await storage.saveCurrentConversation($state.snapshot(chat.history));
+			if (typeof savedId === 'number') {
+				turnConversationId = savedId;
+			}
+		} catch (e) {
+			console.warn('[Conversation] Failed to persist user message:', e);
+		}
 
 		try {
 			const client = getLlmClient();
@@ -123,6 +133,13 @@
 				console.log('[LLM Response]', text);
 				chat.history = [...chat.history, { role: 'assistant', content: text }];
 				addLog(`AI: ${text.slice(0, 60)}...`, 'info');
+				void storage.saveCurrentConversation($state.snapshot(chat.history))
+					.then((savedId) => {
+						if (typeof savedId === 'number') turnConversationId = savedId;
+					})
+					.catch((e) => {
+						console.warn('[Conversation] Failed to persist assistant message:', e);
+					});
 				if (ttsSettings.enabled) {
 					if (llmSettings.streaming) {
 						ttsManager.enqueueStreamChunk('', true);
@@ -132,10 +149,10 @@
 				}
 				// Embed assistant response for memory
 				if (memState.enabled && memoryManager.modelReady) {
-					const currentConvoId = await storage.getSetting('currentConversationId');
-					if (currentConvoId) {
-						memoryManager.addMessage('assistant', text, currentConvoId, chat.history.length - 1);
-						memoryManager.pruneAndSummarize(currentConvoId);
+					const currentConvoId = turnConversationId ?? await storage.getSetting('currentConversationId');
+					if (typeof currentConvoId === 'number') {
+						void memoryManager.addMessage('assistant', text, currentConvoId, chat.history.length - 1);
+						void memoryManager.pruneAndSummarize(currentConvoId);
 					}
 				}
 			};
@@ -150,6 +167,9 @@
 				ttsManager.provider = ttsSettings.provider;
 				if (ttsSettings.provider === 'kokoro') {
 					ttsManager.kokoroVoice = ttsSettings.kokoroVoice as any;
+					ttsManager.kokoroDtype = ttsSettings.kokoroDtype as any;
+					ttsManager.kokoroDevice =
+						ttsSettings.kokoroDevice === 'auto' ? null : ttsSettings.kokoroDevice as any;
 				}
 				if (ttsSettings.provider === 'fish') {
 					ttsManager.fishApiKey = ttsSettings.fishApiKey;
@@ -173,9 +193,9 @@
 						.map(toChatMessage)
 						.filter((m): m is ChatMessage => m !== null);
 					// Embed the user message
-					const currentConvoId = await storage.getSetting('currentConversationId');
-					if (currentConvoId) {
-						memoryManager.addMessage('user', message, currentConvoId, chat.history.length - 1);
+					const currentConvoId = turnConversationId ?? await storage.getSetting('currentConversationId');
+					if (typeof currentConvoId === 'number') {
+						void memoryManager.addMessage('user', message, currentConvoId, chat.history.length - 1);
 					}
 				} catch (e) {
 					console.error('[Memory] buildContext failed, falling back:', e);
@@ -223,6 +243,8 @@
 				if (state.tts) {
 					ttsSettings.provider = state.tts.provider ?? ttsSettings.provider;
 					ttsSettings.kokoroVoice = state.tts.kokoroVoice ?? ttsSettings.kokoroVoice;
+					ttsSettings.kokoroDtype = state.tts.kokoroDtype ?? ttsSettings.kokoroDtype;
+					ttsSettings.kokoroDevice = state.tts.kokoroDevice ?? ttsSettings.kokoroDevice;
 					ttsSettings.fishVoiceId = state.tts.fishVoiceId ?? '';
 					ttsSettings.fishLatency = state.tts.fishLatency ?? ttsSettings.fishLatency;
 					ttsSettings.fishApiKey = state.tts.fishApiKey ?? '';
@@ -367,9 +389,15 @@
 				ttsManager.enableTts = ttsSettings.enabled;
 				if (ttsSettings.provider === 'kokoro') {
 					ttsManager.kokoroVoice = ttsSettings.kokoroVoice as any;
+					ttsManager.kokoroDtype = ttsSettings.kokoroDtype as any;
+					ttsManager.kokoroDevice =
+						ttsSettings.kokoroDevice === 'auto' ? null : ttsSettings.kokoroDevice as any;
 					// Auto-init Kokoro worker so TTS is ready on first message
 					if (!ttsManager.kokoroReadyInWorker && !ttsManager.ttsWorker) {
-						ttsManager.initKokoroInWorker();
+						ttsManager.initKokoroInWorker({
+							dtype: ttsSettings.kokoroDtype as any,
+							device: ttsSettings.kokoroDevice === 'auto' ? null : ttsSettings.kokoroDevice as any
+						});
 					}
 				}
 				if (ttsSettings.provider === 'fish') {
@@ -643,6 +671,8 @@
 			tts: {
 				provider: ttsSettings.provider,
 				kokoroVoice: ttsSettings.kokoroVoice,
+				kokoroDtype: ttsSettings.kokoroDtype,
+				kokoroDevice: ttsSettings.kokoroDevice,
 				fishVoiceId: ttsSettings.fishVoiceId,
 				fishLatency: ttsSettings.fishLatency,
 				fishApiKey: ttsSettings.fishApiKey,
@@ -680,6 +710,7 @@
 			},
 			playlistEnabled,
 			character: chars.current,
+			conversation: $state.snapshot(chat.history),
 			memory: {
 				enabled: memState.enabled,
 				mode: memState.mode,

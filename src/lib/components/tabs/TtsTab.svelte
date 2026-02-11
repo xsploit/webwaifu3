@@ -9,6 +9,8 @@
 
 	let testInput = $state('Hello! I\'m your anime companion.');
 	let kokoroInitStatus = $state('');
+	type KokoroDtypeSetting = 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16';
+	type KokoroDeviceSetting = 'webgpu' | 'wasm' | 'cpu' | 'auto';
 
 	interface VoiceGroup {
 		label: string;
@@ -64,6 +66,21 @@
 				{ value: 'bm_fable', name: 'Fable' }
 			]
 		}
+	];
+
+	const kokoroDtypeOptions: { value: KokoroDtypeSetting; label: string }[] = [
+		{ value: 'q4', label: 'q4 (Fastest)' },
+		{ value: 'q8', label: 'q8 (Balanced)' },
+		{ value: 'q4f16', label: 'q4f16' },
+		{ value: 'fp16', label: 'fp16' },
+		{ value: 'fp32', label: 'fp32 (Highest precision)' }
+	];
+
+	const kokoroDeviceOptions: { value: KokoroDeviceSetting; label: string }[] = [
+		{ value: 'webgpu', label: 'WebGPU (Preferred)' },
+		{ value: 'wasm', label: 'WASM (CPU Fallback)' },
+		{ value: 'cpu', label: 'CPU' },
+		{ value: 'auto', label: 'Auto Detect' }
 	];
 
 	let showFishKey = $derived(tts.provider === 'fish');
@@ -160,8 +177,13 @@
 		tts.kokoroVoice = (e.target as HTMLSelectElement).value;
 	}
 
-	function initKokoro() {
-		if (tts.kokoroLoading || tts.kokoroReady) return;
+	function resolveKokoroDevice(device: KokoroDeviceSetting): 'webgpu' | 'wasm' | 'cpu' | null {
+		return device === 'auto' ? null : device;
+	}
+
+	function beginKokoroInit(reinitialize: boolean) {
+		if (tts.kokoroLoading) return;
+		if (!reinitialize && tts.kokoroReady) return;
 		tts.kokoroLoading = true;
 		kokoroInitStatus = 'Downloading model (~86MB)...';
 
@@ -179,7 +201,26 @@
 			}
 		};
 		window.addEventListener('kokoro-tts-status', onStatus as EventListener);
-		ttsManager.initKokoroInWorker({ dtype: 'q4', device: null });
+
+		const options = {
+			dtype: tts.kokoroDtype as KokoroDtypeSetting,
+			device: resolveKokoroDevice(tts.kokoroDevice as KokoroDeviceSetting)
+		};
+
+		if (reinitialize) {
+			tts.kokoroReady = false;
+			ttsManager.reinitKokoroInWorker(options);
+		} else {
+			ttsManager.initKokoroInWorker(options);
+		}
+	}
+
+	function initKokoro() {
+		beginKokoroInit(false);
+	}
+
+	function reinitKokoro() {
+		beginKokoroInit(true);
 	}
 
 	async function testVoice() {
@@ -192,6 +233,8 @@
 					return toast('Kokoro not initialized - click "Initialize" first');
 				}
 				ttsManager.kokoroVoice = tts.kokoroVoice as KokoroVoice;
+				ttsManager.kokoroDtype = tts.kokoroDtype as KokoroDtypeSetting;
+				ttsManager.kokoroDevice = resolveKokoroDevice(tts.kokoroDevice as KokoroDeviceSetting);
 			} else if (tts.provider === 'fish') {
 				ttsManager.fishApiKey = tts.fishApiKey;
 				ttsManager.fishVoiceId = tts.fishVoiceId;
@@ -227,6 +270,7 @@
 		<div class="kokoro-status">
 			{#if tts.kokoroReady}
 				<span class="status-ready">Ready</span>
+				<button class="btn-init" onclick={reinitKokoro} disabled={tts.kokoroLoading}>Reinitialize</button>
 			{:else if tts.kokoroLoading}
 				<span class="status-loading">{kokoroInitStatus}</span>
 			{:else}
@@ -234,6 +278,25 @@
 				<span class="status-hint">Downloads ~86MB model</span>
 			{/if}
 		</div>
+	</div>
+
+	<div class="control-group">
+		<div class="control-label">Kokoro Device</div>
+		<select class="select-tech" bind:value={tts.kokoroDevice}>
+			{#each kokoroDeviceOptions as opt}
+				<option value={opt.value}>{opt.label}</option>
+			{/each}
+		</select>
+	</div>
+
+	<div class="control-group">
+		<div class="control-label">Kokoro Precision (DType)</div>
+		<select class="select-tech" bind:value={tts.kokoroDtype}>
+			{#each kokoroDtypeOptions as opt}
+				<option value={opt.value}>{opt.label}</option>
+			{/each}
+		</select>
+		<small class="hint">Changes apply on Initialize/Reinitialize and are persisted.</small>
 	</div>
 
 	<div class="control-group">

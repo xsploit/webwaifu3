@@ -37,6 +37,11 @@
 	let confirmClearEmbeddings = $state(false);
 	let confirmClearSummaries = $state(false);
 
+	function syncRuntimeState() {
+		modelReady = memoryManager.modelReady;
+		modelLoading = memoryManager.modelLoading;
+	}
+
 	const modeDescriptions: Record<string, string> = {
 		'auto-prune': 'Keeps the last N messages in context. Older messages are still embedded and searchable, but pruned from the direct context window.',
 		'auto-summarize': 'Sliding window of recent messages + LLM-generated summaries of older messages. Requires a summarization LLM to be configured.',
@@ -59,19 +64,19 @@
 		statusMsg = 'Loading embedding model (~23MB)...';
 		try {
 			await memoryManager.initEmbeddingModel();
-			modelReady = true;
+			syncRuntimeState();
 			statusMsg = 'Model loaded!';
 		} catch (e: any) {
 			statusMsg = 'Failed: ' + e.message;
 		} finally {
-			modelLoading = false;
+			syncRuntimeState();
 		}
 	}
 
 	async function unloadModel() {
 		try {
 			await memoryManager.unloadModel();
-			modelReady = false;
+			syncRuntimeState();
 			statusMsg = 'Model unloaded';
 		} catch (e: any) {
 			statusMsg = 'Unload failed: ' + e.message;
@@ -80,21 +85,35 @@
 
 	async function clearEmbeddings() {
 		await storage.clearEmbeddings();
-		embeddingsCount = 0;
+		await loadStats();
 		confirmClearEmbeddings = false;
 		statusMsg = 'Embeddings cleared';
 	}
 
 	async function clearSummaries() {
 		await storage.clearSummaries();
-		summariesCount = 0;
+		await loadStats();
 		confirmClearSummaries = false;
 		statusMsg = 'Summaries cleared';
 	}
 
 	// Load stats when component mounts
 	$effect(() => {
-		if (storage.db) loadStats();
+		if (!storage.db) return;
+		let cancelled = false;
+		const refresh = async () => {
+			if (cancelled) return;
+			syncRuntimeState();
+			await loadStats();
+		};
+		void refresh();
+		const intervalId = window.setInterval(() => {
+			void refresh();
+		}, 2000);
+		return () => {
+			cancelled = true;
+			window.clearInterval(intervalId);
+		};
 	});
 
 	// Sync manager properties when settings change

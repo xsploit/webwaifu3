@@ -20,6 +20,7 @@ interface ChunkData {
 	wordBoundaries: WordBoundary[];
 	phonemes: string[] | null;
 	text: string;
+	sampleRate?: number | null;
 }
 
 export interface VoiceInfo {
@@ -31,11 +32,14 @@ export interface VoiceInfo {
 	language?: string;
 }
 
+type KokoroDtype = 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16';
+type KokoroDevice = 'webgpu' | 'wasm' | 'cpu' | null;
+
 /** Accumulates LLM tokens and flushes on sentence-ending punctuation.
  *  Shared by both Kokoro and Fish TTS paths. */
 class SentenceAccumulator {
 	private buffer = '';
-	private static sentenceEnds = new Set(['.', '!', '?']);
+	private static sentenceEnds = new Set(['.', '!', '?', ',', ';', ':']);
 
 	addToken(token: string): string | null {
 		this.buffer += token;
@@ -55,6 +59,12 @@ class SentenceAccumulator {
 			this.buffer = '';
 			return sentence || null;
 		}
+		// Fallback flush for long unpunctuated runs to keep latency low.
+		if (last && this.buffer.length >= 80 && /\s/.test(last)) {
+			const sentence = this.buffer.trim();
+			this.buffer = '';
+			return sentence || null;
+		}
 		return null;
 	}
 
@@ -70,10 +80,13 @@ class SentenceAccumulator {
 export class TtsManager {
 	provider: 'fish' | 'kokoro' = 'kokoro';
 	kokoroVoice: KokoroVoice = 'af_heart';
+	kokoroDtype: KokoroDtype = 'q4';
+	kokoroDevice: KokoroDevice = 'webgpu';
 	fishApiKey = '';
 	fishVoiceId = '';
 	fishModel: 's1' | 'speech-1.5' | 'speech-1.6' = 's1';
 	fishLatency: 'normal' | 'balanced' = 'balanced';
+	fishSampleRate = 24000;
 	enableTts = true;
 
 	audioContext: AudioContext | null = null;
@@ -97,7 +110,16 @@ export class TtsManager {
 	_fishAbortController: AbortController | null = null;
 	_fishTextEncoder = new TextEncoder();
 	_fishTextController: WritableStreamDefaultWriter<Uint8Array> | null = null;
-	_fishAudioPromise: Promise<Blob> | null = null;
+	_fishAudioPromise: Promise<void> | null = null;
+	_fishResponseSampleRate: number | null = null;
+	_fishChunkCount = 0;
+	_fishTotalBytes = 0;
+	_fishPlaybackCursorTime = 0;
+	_fishTrailingByte: number | null = null;
+	_fishActiveSources = new Set<AudioBufferSourceNode>();
+	_fishLipSyncChain: Promise<void> = Promise.resolve();
+	_phonemizerPromise: Promise<{ phonemize: (text: string, language?: string) => Promise<string[]> } | null> | null = null;
+	_analyserConnected = false;
 
 	wordBoundaries: WordBoundary[] = [];
 	currentPhonemes: string[] | null = null;
@@ -121,6 +143,7 @@ export class TtsManager {
 		this.audioAnalyser = this.audioContext.createAnalyser();
 		this.audioAnalyser.fftSize = 128;
 		this.audioAnalyser.smoothingTimeConstant = 0.05;
+		this._analyserConnected = false;
 		this.audioDataArray = new Uint8Array(this.audioAnalyser.frequencyBinCount) as Uint8Array<ArrayBuffer>;
 		this.startTtsWorker();
 		console.log('[TtsManager] Initialized with lip sync support');
@@ -168,8 +191,13 @@ export class TtsManager {
 			}
 		}
 
-		// 3. Flush chunk buffer when long enough (lower threshold for first chunk)
-		const threshold = this.isFirstChunkOfTurn ? 20 : 70;
+		// 3. Flush chunk buffer when long enough (lower threshold for first chunk).
+		// Fish benefits from earlier flushes so TTS synthesis can overlap LLM generation.
+		const threshold = this.isFirstChunkOfTurn
+			? 12
+			: this.provider === 'fish'
+				? 28
+				: 70;
 		if (this.chunkBuffer.length >= threshold || (isFinal && this.chunkBuffer.length > 2)) {
 			const chunks = this._splitForTts(this.chunkBuffer);
 			for (const c of chunks) {
@@ -193,15 +221,18 @@ export class TtsManager {
 	/** Route a TTS-ready text chunk to the active provider */
 	_sendToProvider(text: string) {
 		if (this.provider === 'fish') {
-			// Open the streaming session on first text
+			// Realtime mode: keep one Fish WebSocket session open and stream text chunks into it.
 			if (!this._fishTextController) {
 				this._startFishStreamSession();
 			}
 			if (!this._fishTextController) {
-				this.onError?.(new Error('Fish stream unavailable (missing API key or failed stream init)'));
+				this.onError?.(new Error('Fish realtime stream unavailable (missing API key or failed stream init)'));
 				return;
 			}
-			void this._fishTextController
+			// Generate approximate word boundaries + phonemes for lip sync
+		this._fishLipSyncChain = this._fishLipSyncChain.then(() => this._appendFishApproxLipSync(text));
+
+		void this._fishTextController
 				.write(this._fishTextEncoder.encode(text + ' '))
 				.catch((err) => {
 					const e = err instanceof Error ? err : new Error(String(err));
@@ -245,6 +276,7 @@ export class TtsManager {
 			this._fishTextController = null;
 		}
 		this._fishAudioPromise = null;
+		this._resetFishRealtimeState(true);
 
 		if (this._fishAbortController) {
 			this._fishAbortController.abort();
@@ -268,6 +300,7 @@ export class TtsManager {
 		}
 
 		this.isPlaying = false;
+		this.wordBoundaryStartTime = null;
 	}
 
 	clearQueue() {
@@ -288,19 +321,33 @@ export class TtsManager {
 		this.audioContext = null;
 	}
 
-	initKokoroInWorker(options: { dtype?: string; device?: string | null } = {}) {
+	initKokoroInWorker(options: { dtype?: KokoroDtype; device?: KokoroDevice } = {}) {
 		if (this.ttsWorker) {
 			window.dispatchEvent(new CustomEvent('kokoro-tts-status', { detail: 'Already initialized' }));
 			return;
 		}
+		const dtype = options.dtype ?? this.kokoroDtype;
+		const device = options.device ?? this.kokoroDevice;
+		this.kokoroDtype = dtype;
+		this.kokoroDevice = device;
 		this.ttsWorker = new Worker(new URL('./tts-worker.ts', import.meta.url), { type: 'module' });
 		this.ttsWorker.onmessage = (e: MessageEvent) => this._onTtsWorkerMessage(e);
 		this.ttsWorker.onerror = (err) => {
 			this.kokoroReadyInWorker = false;
 			window.dispatchEvent(new CustomEvent('kokoro-tts-status', { detail: 'Worker error: ' + err.message }));
 		};
-		this.ttsWorker.postMessage({ type: 'init', options: { dtype: options.dtype ?? 'q4', device: options.device ?? null } });
+		this.ttsWorker.postMessage({ type: 'init', options: { dtype, device } });
 		window.dispatchEvent(new CustomEvent('kokoro-tts-status', { detail: 'Downloading Kokoro TTS model...' }));
+	}
+
+	reinitKokoroInWorker(options: { dtype?: KokoroDtype; device?: KokoroDevice } = {}) {
+		this.stop();
+		if (this.ttsWorker) {
+			this.ttsWorker.terminate();
+			this.ttsWorker = null;
+		}
+		this.kokoroReadyInWorker = false;
+		this.initKokoroInWorker(options);
 	}
 
 	_onTtsWorkerMessage(e: MessageEvent) {
@@ -401,31 +448,51 @@ export class TtsManager {
 
 	async _synthesizeFish(text: string): Promise<ChunkData> {
 		if (!this.fishApiKey) throw new Error('Fish Audio requires API key');
+		const effectiveModel = this.fishModel === 's1' ? 'speech-1.5' : this.fishModel;
 
-		this._fishAbortController = new AbortController();
+		let lastError: Error | null = null;
+		let audioBlob: Blob | null = null;
 
-		const response = await fetch('/api/tts/fish-stream', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			signal: this._fishAbortController.signal,
-			body: JSON.stringify({
-				text,
-				apiKey: this.fishApiKey,
-				referenceId: this.fishVoiceId || undefined,
-				model: this.fishModel,
-				format: 'mp3',
-				latency: this.fishLatency
-			})
-		});
+		for (let attempt = 0; attempt < 2; attempt++) {
+			this._fishAbortController = new AbortController();
+			try {
+				// Use stable non-stream endpoint per chunk to avoid HTTP/2 protocol issues under rapid chunk cadence.
+				const response = await fetch('/api/tts/fish', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					signal: this._fishAbortController.signal,
+					body: JSON.stringify({
+						text,
+						apiKey: this.fishApiKey,
+						referenceId: this.fishVoiceId || undefined,
+						model: effectiveModel,
+						format: 'mp3',
+						latency: this.fishLatency
+					})
+				});
 
-		this._fishAbortController = null;
+				if (!response.ok) {
+					const err = await response.json().catch(() => ({ error: response.statusText }));
+					throw new Error(err.error || `Fish Audio error ${response.status}`);
+				}
 
-		if (!response.ok) {
-			const err = await response.json().catch(() => ({ error: response.statusText }));
-			throw new Error(err.error || `Fish Audio error ${response.status}`);
+				audioBlob = await response.blob();
+				break;
+			} catch (err) {
+				lastError = err instanceof Error ? err : new Error(String(err));
+				if (attempt === 0) {
+					await new Promise((r) => setTimeout(r, 150));
+					continue;
+				}
+			} finally {
+				this._fishAbortController = null;
+			}
 		}
 
-		const audioBlob = await response.blob();
+		if (!audioBlob) {
+			throw lastError ?? new Error('Fish Audio synthesis failed');
+		}
+
 		return {
 			audioBlob: new Blob([audioBlob], { type: 'audio/mpeg' }),
 			wordBoundaries: [],
@@ -453,8 +520,197 @@ export class TtsManager {
 		return { audioBlob, wordBoundaries, phonemes: null, text };
 	}
 
+	async _getPhonemizer() {
+		if (!this._phonemizerPromise) {
+			this._phonemizerPromise = import('phonemizer')
+				.then((mod) => ({ phonemize: mod.phonemize }))
+				.catch((err) => {
+					console.warn('[TtsManager] Phonemizer unavailable, using fallback visemes:', err);
+					return null;
+				});
+		}
+		return this._phonemizerPromise;
+	}
+
+	async _appendFishApproxLipSync(text: string) {
+		const cleaned = this._cleanForSpeech(text);
+		if (!cleaned) return;
+
+		const words = cleaned.split(/\s+/).filter(Boolean);
+		if (words.length === 0) return;
+
+		let phonemeWords: string[] = [];
+		const phonemizer = await this._getPhonemizer();
+		if (phonemizer) {
+			try {
+				const result = await phonemizer.phonemize(cleaned, 'en-us');
+				const line = Array.isArray(result) ? (result[0] ?? '') : '';
+				phonemeWords = line.split(/\s+/).filter(Boolean);
+			} catch {
+				phonemeWords = [];
+			}
+		}
+
+		if (phonemeWords.length === 0) {
+			phonemeWords = words.map((w) => w.toLowerCase());
+		}
+		if (phonemeWords.length < words.length) {
+			const filled = [...phonemeWords];
+			while (filled.length < words.length) {
+				filled.push(words[filled.length].toLowerCase());
+			}
+			phonemeWords = filled;
+		} else if (phonemeWords.length > words.length) {
+			phonemeWords = phonemeWords.slice(0, words.length);
+		}
+
+		let cursorSeconds = 0;
+		if (this.wordBoundaries.length > 0) {
+			const last = this.wordBoundaries[this.wordBoundaries.length - 1];
+			cursorSeconds = (last.offset + last.duration) / 10000000;
+		}
+
+		const appendedBoundaries: WordBoundary[] = [];
+		for (let i = 0; i < words.length; i++) {
+			const word = words[i];
+			const sanitizedWord = word.replace(/^[^A-Za-z0-9']+|[^A-Za-z0-9']+$/g, '') || word;
+			let durationSec = 0.09 + Math.min(sanitizedWord.length, 14) * 0.027;
+			if (/[,.!?;:]$/.test(word)) durationSec += 0.07;
+			durationSec = Math.max(0.1, Math.min(durationSec, 0.5));
+
+			appendedBoundaries.push({
+				word: sanitizedWord,
+				offset: Math.round(cursorSeconds * 10000000),
+				duration: Math.round(durationSec * 10000000)
+			});
+			cursorSeconds += durationSec;
+		}
+
+		const existingPhonemes = this.currentPhonemes ?? [];
+		this.wordBoundaries = [...this.wordBoundaries, ...appendedBoundaries];
+		this.currentPhonemes = [...existingPhonemes, ...phonemeWords];
+
+		const maxWords = 320;
+		if (this.wordBoundaries.length > maxWords && this.currentPhonemes) {
+			const drop = this.wordBoundaries.length - maxWords;
+			this.wordBoundaries = this.wordBoundaries.slice(drop);
+			this.currentPhonemes = this.currentPhonemes.slice(drop);
+		}
+
+		this.onLipSyncData?.({
+			wordBoundaries: this.wordBoundaries,
+			phonemes: this.currentPhonemes,
+			text: cleaned
+		});
+	}
+
+	_ensureAnalyserConnected() {
+		if (!this.audioContext || !this.audioAnalyser || this._analyserConnected) return;
+		try {
+			this.audioAnalyser.connect(this.audioContext.destination);
+			this._analyserConnected = true;
+		} catch {
+			// Ignore duplicate/invalid graph connection attempts.
+		}
+	}
+
+	_resetFishRealtimeState(stopSources = false) {
+		this._fishResponseSampleRate = null;
+		this._fishChunkCount = 0;
+		this._fishTotalBytes = 0;
+		this._fishTrailingByte = null;
+		const now = this.audioContext?.currentTime ?? 0;
+		this._fishPlaybackCursorTime = stopSources ? now : Math.max(this._fishPlaybackCursorTime, now);
+
+		if (stopSources) {
+			for (const source of this._fishActiveSources) {
+				try { source.onended = null; } catch { /* ignore */ }
+				try { source.stop(); } catch { /* already stopped */ }
+				try { source.disconnect(); } catch { /* ignore */ }
+			}
+			this._fishActiveSources.clear();
+		}
+	}
+
+	_scheduleFishPcmChunk(chunk: Uint8Array, sampleRate: number) {
+		if (!this.audioContext || !this.audioAnalyser || chunk.length === 0) return;
+
+		let pcm = chunk;
+		if (this._fishTrailingByte !== null) {
+			const merged = new Uint8Array(chunk.length + 1);
+			merged[0] = this._fishTrailingByte;
+			merged.set(chunk, 1);
+			pcm = merged;
+			this._fishTrailingByte = null;
+		}
+
+		if ((pcm.length & 1) === 1) {
+			this._fishTrailingByte = pcm[pcm.length - 1];
+			pcm = pcm.subarray(0, pcm.length - 1);
+		}
+		if (pcm.length === 0) return;
+
+		const sampleCount = pcm.length / 2;
+		const floatSamples = new Float32Array(sampleCount);
+		for (let i = 0, j = 0; i < sampleCount; i++, j += 2) {
+			let sample = (pcm[j + 1] << 8) | pcm[j];
+			if (sample >= 0x8000) sample -= 0x10000;
+			floatSamples[i] = sample / 32768;
+		}
+
+		if (this.audioContext.state === 'suspended') {
+			void this.audioContext.resume().catch(() => {});
+		}
+
+		const audioBuffer = this.audioContext.createBuffer(1, sampleCount, sampleRate);
+		audioBuffer.copyToChannel(floatSamples, 0);
+
+		const source = this.audioContext.createBufferSource();
+		source.buffer = audioBuffer;
+		source.connect(this.audioAnalyser);
+		this._ensureAnalyserConnected();
+
+		const now = this.audioContext.currentTime;
+		if (this._fishPlaybackCursorTime < now + 0.01) {
+			this._fishPlaybackCursorTime = now + 0.01;
+		}
+		const startAt = this._fishPlaybackCursorTime;
+		source.start(startAt);
+		this._fishPlaybackCursorTime += audioBuffer.duration;
+
+		this._fishActiveSources.add(source);
+		source.onended = () => {
+			this._fishActiveSources.delete(source);
+			try { source.disconnect(); } catch { /* ignore */ }
+		};
+
+		if (!this.isPlaying) {
+			this.isPlaying = true;
+			this.wordBoundaryStartTime = startAt;
+			this.onSpeechStarted?.();
+			this.onLipSyncData?.({
+				wordBoundaries: this.wordBoundaries,
+				phonemes: this.currentPhonemes,
+				text: ''
+			});
+		}
+	}
+
+	async _waitForFishPlaybackDrain() {
+		if (!this.audioContext) return;
+		const remaining = this._fishPlaybackCursorTime - this.audioContext.currentTime;
+		if (remaining > 0) {
+			await new Promise((resolve) => setTimeout(resolve, Math.ceil(remaining * 1000) + 25));
+		}
+	}
+
 	_startFishStreamSession() {
 		if (!this.fishApiKey) return;
+		this._resetFishRealtimeState(false);
+		this._fishLipSyncChain = Promise.resolve();
+		this.wordBoundaries = [];
+		this.currentPhonemes = [];
+		this.wordBoundaryStartTime = null;
 
 		const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
 		this._fishTextController = writable.getWriter();
@@ -470,7 +726,8 @@ export class TtsManager {
 				'x-fish-api-key': this.fishApiKey,
 				'x-fish-reference-id': this.fishVoiceId || '',
 				'x-fish-model': this.fishModel,
-				'x-fish-format': 'mp3',
+				'x-fish-format': 'pcm',
+				'x-fish-sample-rate': String(this.fishSampleRate),
 				'x-fish-latency': this.fishLatency,
 			},
 			body: readable,
@@ -482,24 +739,56 @@ export class TtsManager {
 				const err = await response.json().catch(() => ({ error: response.statusText }));
 				throw new Error(err.error || `Fish Audio error ${response.status}`);
 			}
-			// Stream the response body — collect chunks as they arrive from Fish
+			const responseType = (response.headers.get('Content-Type') || 'audio/mpeg').toLowerCase();
+			const isPcm = responseType.includes('audio/pcm');
+			const sampleRateHeader = response.headers.get('x-fish-sample-rate');
+			const parsed = sampleRateHeader ? Number(sampleRateHeader) : NaN;
+			const sampleRate = Number.isFinite(parsed) ? parsed : this.fishSampleRate;
+			this._fishResponseSampleRate = sampleRate;
+
+			if (!response.body) {
+				throw new Error('Fish stream missing response body');
+			}
+
+			if (!this.audioContext) await this.initialize();
+			const now = this.audioContext?.currentTime ?? 0;
+			this._fishPlaybackCursorTime = Math.max(this._fishPlaybackCursorTime, now);
+
 			const reader = response.body!.getReader();
-			const chunks: Uint8Array[] = [];
-			let totalSize = 0;
+			const fallbackChunks: Uint8Array[] = [];
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
-				chunks.push(value);
-				totalSize += value.length;
+				if (!value || value.length === 0) continue;
+				this._fishChunkCount++;
+				this._fishTotalBytes += value.length;
+				if (isPcm) {
+					this._scheduleFishPcmChunk(value, sampleRate);
+				} else {
+					fallbackChunks.push(value);
+				}
 			}
-			console.log(`[TtsManager] Fish stream received: ${(totalSize / 1024).toFixed(1)}KB in ${chunks.length} chunks`);
-			const blobParts: BlobPart[] = chunks.map((chunk) => {
-				// Copy into a standard ArrayBuffer-backed view to satisfy strict BlobPart typing.
-				const copy = new Uint8Array(chunk.byteLength);
-				copy.set(chunk);
-				return copy;
-			});
-			return new Blob(blobParts, { type: 'audio/mpeg' });
+
+			if (!isPcm && fallbackChunks.length > 0) {
+				const blobParts: BlobPart[] = fallbackChunks.map((chunk) => {
+					const copy = new Uint8Array(chunk.byteLength);
+					copy.set(chunk);
+					return copy;
+				});
+				const blob = new Blob(blobParts, { type: responseType });
+				await this._playAudioChunk({
+					audioBlob: blob,
+					wordBoundaries: [],
+					phonemes: null,
+					text: '',
+					sampleRate
+				});
+			}
+
+			this._fishTrailingByte = null;
+			console.log(
+				`[TtsManager] Fish stream received: ${(this._fishTotalBytes / 1024).toFixed(1)}KB in ${this._fishChunkCount} chunks`
+			);
 		});
 	}
 
@@ -508,33 +797,27 @@ export class TtsManager {
 
 		const audioPromise = this._fishAudioPromise;
 		this._fishAudioPromise = null;
-		this._fishAbortController = null;
 
 		try {
-			const audioBlob = await audioPromise;
-			if (!audioBlob || audioBlob.size === 0) {
-				console.warn('[TtsManager] Fish stream returned empty audio');
-				return;
+			await audioPromise;
+			await this._waitForFishPlaybackDrain();
+			if (this.isPlaying) {
+				this.isPlaying = false;
+				this.wordBoundaries = [];
+				this.currentPhonemes = null;
+				this.wordBoundaryStartTime = null;
+				this.onSpeechFinished?.();
 			}
-
-			console.log('[TtsManager] Fish stream audio ready:', (audioBlob.size / 1024).toFixed(1), 'KB');
-
-			if (!this.audioContext) await this.initialize();
-			if (!this.ttsWorkerRunning) await this.startTtsWorker();
-
-			const chunkData: ChunkData = {
-				audioBlob: new Blob([audioBlob], { type: 'audio/mpeg' }),
-				wordBoundaries: [],
-				phonemes: null,
-				text: ''
-			};
-
-			await this._playAudioChunk(chunkData);
-			this.onSpeechFinished?.();
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') return;
 			console.error('[TtsManager] Fish stream playback error:', err);
+			this._resetFishRealtimeState(true);
+			this.isPlaying = false;
+			this.wordBoundaryStartTime = null;
 			this.onError?.(err as Error);
+		} finally {
+			this._fishAbortController = null;
+			this._resetFishRealtimeState(false);
 		}
 	}
 
@@ -566,7 +849,7 @@ export class TtsManager {
 
 	async _playAudioChunk(chunkData: ChunkData) {
 		return new Promise<void>(async (resolve, reject) => {
-			let { audioBlob, wordBoundaries, phonemes, text } = chunkData;
+			let { audioBlob, wordBoundaries, phonemes, text, sampleRate } = chunkData;
 
 			if (this.currentAudio) {
 				this.currentAudio.pause();
@@ -577,7 +860,7 @@ export class TtsManager {
 			}
 
 			if (audioBlob.type === 'audio/pcm') {
-				audioBlob = await this._pcmToWav(audioBlob);
+				audioBlob = await this._pcmToWav(audioBlob, sampleRate ?? this.fishSampleRate);
 			}
 
 			this.wordBoundaries = wordBoundaries;
@@ -599,7 +882,7 @@ export class TtsManager {
 				}
 				this.audioSource = this.audioContext.createMediaElementSource(this.currentAudio);
 				this.audioSource.connect(this.audioAnalyser!);
-				this.audioAnalyser!.connect(this.audioContext.destination);
+				this._ensureAnalyserConnected();
 			} catch (e) {
 				console.warn('[TtsManager] Audio graph connect:', e);
 			}
@@ -694,7 +977,10 @@ export class TtsManager {
 		if (!this.audioAnalyser || !this.audioDataArray) {
 			return this.isPlaying ? 0.5 : 0;
 		}
-		if (!this.isPlaying || !this.currentAudio || this.currentAudio.paused) {
+		if (!this.isPlaying) {
+			return 0;
+		}
+		if (this.currentAudio && this.currentAudio.paused) {
 			return 0;
 		}
 
@@ -709,7 +995,9 @@ export class TtsManager {
 			sum += this.audioDataArray[i] * weight;
 		}
 		const average = sum / (len * 1.5);
-		return Math.min((average / 255) * 2.5, 1.0);
+		// Fish PCM is much hotter than HTMLAudioElement — scale down to avoid saturation
+		const scale = this.currentAudio ? 2.5 : 1.0;
+		return Math.min((average / 255) * scale, 1.0);
 	}
 
 	async getFishVoices(): Promise<VoiceInfo[]> {

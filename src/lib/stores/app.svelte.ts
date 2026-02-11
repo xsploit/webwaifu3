@@ -194,6 +194,8 @@ export function getLlmSettings() {
 // TTS settings state
 let ttsProvider = $state<'fish' | 'kokoro'>('kokoro');
 let ttsKokoroVoice = $state('af_heart');
+let ttsKokoroDtype = $state<'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16'>('q4');
+let ttsKokoroDevice = $state<'webgpu' | 'wasm' | 'cpu' | 'auto'>('webgpu');
 let ttsFishVoiceId = $state('');
 let ttsFishLatency = $state<'normal' | 'balanced'>('balanced');
 let ttsEnabled = $state(true);
@@ -209,6 +211,10 @@ export function getTtsSettings() {
 		set provider(v: 'fish' | 'kokoro') { ttsProvider = v; },
 		get kokoroVoice() { return ttsKokoroVoice; },
 		set kokoroVoice(v: string) { ttsKokoroVoice = v; },
+		get kokoroDtype() { return ttsKokoroDtype; },
+		set kokoroDtype(v: 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16') { ttsKokoroDtype = v; },
+		get kokoroDevice() { return ttsKokoroDevice; },
+		set kokoroDevice(v: 'webgpu' | 'wasm' | 'cpu' | 'auto') { ttsKokoroDevice = v; },
 		get fishVoiceId() { return ttsFishVoiceId; },
 		set fishVoiceId(v: string) { ttsFishVoiceId = v; },
 		get fishLatency() { return ttsFishLatency; },

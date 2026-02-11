@@ -342,6 +342,8 @@ export class StorageManager {
 		if (tts) {
 			await this.setSetting('tts.provider', tts.provider);
 			await this.setSetting('tts.kokoroVoice', tts.kokoroVoice);
+			await this.setSetting('tts.kokoroDtype', tts.kokoroDtype ?? 'q4');
+			await this.setSetting('tts.kokoroDevice', tts.kokoroDevice ?? 'webgpu');
 			await this.setSetting('tts.fishVoiceId', tts.fishVoiceId);
 			await this.setSetting('tts.fishLatency', tts.fishLatency);
 			await this.setSetting('tts.fishApiKey', tts.fishApiKey);
@@ -423,6 +425,8 @@ export class StorageManager {
 			tts: {
 				provider: ttsProvider,
 				kokoroVoice: kokoroVoice ?? 'af_heart',
+				kokoroDtype: await this.getSetting('tts.kokoroDtype', 'q4'),
+				kokoroDevice: await this.getSetting('tts.kokoroDevice', 'webgpu'),
 				fishVoiceId: fishVoiceId ?? '',
 				fishLatency: await this.getSetting('tts.fishLatency', 'balanced'),
 				fishApiKey: (await this.getSetting('tts.fishApiKey', '')) || (await this.getSetting('tts.apiKey', '')),

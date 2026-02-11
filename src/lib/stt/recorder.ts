@@ -25,6 +25,20 @@ export class SttRecorder {
 	onError: ((error: string) => void) | null = null;
 	onAutoStop: (() => void) | null = null;
 
+	private trimSilence(samples: Float32Array, threshold = 0.003, paddingSamples = 1600): Float32Array {
+		let start = 0;
+		while (start < samples.length && Math.abs(samples[start]) < threshold) start++;
+
+		let end = samples.length - 1;
+		while (end >= 0 && Math.abs(samples[end]) < threshold) end--;
+
+		if (end <= start) return samples;
+
+		start = Math.max(0, start - paddingSamples);
+		end = Math.min(samples.length - 1, end + paddingSamples);
+		return samples.slice(start, end + 1);
+	}
+
 	private appendAudioChunk(chunk: Float32Array | ArrayBuffer) {
 		if (!this.recording) return;
 		const data = chunk instanceof Float32Array ? chunk : new Float32Array(chunk);
@@ -214,6 +228,7 @@ export class SttRecorder {
 			offset += chunk.length;
 		}
 		this.audioChunks = [];
+		const trimmed = this.trimSilence(merged);
 
 		// Send to worker for transcription
 		if (!this.worker || !this.modelReady) {
@@ -225,8 +240,8 @@ export class SttRecorder {
 		return new Promise((resolve, reject) => {
 			this.pendingRequests.set(id, { resolve: (r) => resolve(r?.transcript ?? null), reject });
 			this.worker!.postMessage(
-				{ type: 'transcribe', id, data: { audioData: merged, options: { chunk_length_s: 10, stride_length_s: 2 } } },
-				[merged.buffer]
+				{ type: 'transcribe', id, data: { audioData: trimmed, options: { chunk_length_s: 5, stride_length_s: 1 } } },
+				[trimmed.buffer]
 			);
 		});
 	}

@@ -31,7 +31,7 @@ async function handleFullText(request: Request): Promise<Response> {
 		return json({ error: 'Invalid JSON body' }, { status: 400 });
 	}
 
-	const { text, apiKey, referenceId, model, format, latency } = body;
+	const { text, apiKey, referenceId, model, format, latency, sampleRate } = body;
 
 	if (!text || !apiKey) {
 		return json({ error: 'text and apiKey required' }, { status: 400 });
@@ -50,7 +50,8 @@ async function handleFullText(request: Request): Promise<Response> {
 		referenceId,
 		model,
 		format,
-		latency
+		latency,
+		sampleRate: normalizeSampleRate(sampleRate)
 	});
 }
 
@@ -61,6 +62,7 @@ async function handleStreamingText(request: Request): Promise<Response> {
 	const model = request.headers.get('x-fish-model') || 's1';
 	const format = request.headers.get('x-fish-format') || 'mp3';
 	const latency = request.headers.get('x-fish-latency') || 'balanced';
+	const sampleRate = normalizeSampleRate(request.headers.get('x-fish-sample-rate'));
 
 	if (!apiKey) {
 		return json({ error: 'x-fish-api-key header required' }, { status: 400 });
@@ -95,7 +97,8 @@ async function handleStreamingText(request: Request): Promise<Response> {
 		referenceId,
 		model,
 		format,
-		latency
+		latency,
+		sampleRate
 	});
 }
 
@@ -104,6 +107,7 @@ interface SessionConfig {
 	model?: string;
 	format?: string;
 	latency?: string;
+	sampleRate?: number;
 }
 
 /** Shared: opens one Fish WebSocket session, streams audio chunks to client in real-time */
@@ -116,6 +120,7 @@ async function runWebSocketSession(
 		text: '', // content flows via text stream
 		reference_id: config.referenceId || undefined,
 		format: (config.format || 'mp3') as 'wav' | 'pcm' | 'mp3' | 'opus',
+		sample_rate: config.sampleRate,
 		mp3_bitrate: 128 as const,
 		chunk_length: 200,
 		normalize: true,
@@ -126,6 +131,8 @@ async function runWebSocketSession(
 	const ct =
 		config.format === 'wav'
 			? 'audio/wav'
+			: config.format === 'pcm'
+				? 'audio/pcm'
 			: config.format === 'opus'
 				? 'audio/opus'
 				: 'audio/mpeg';
@@ -188,7 +195,10 @@ async function runWebSocketSession(
 		});
 
 		return new Response(stream, {
-			headers: { 'Content-Type': ct }
+			headers: {
+				'Content-Type': ct,
+				...(config.sampleRate ? { 'x-fish-sample-rate': String(config.sampleRate) } : {})
+			}
 		});
 	} catch (err: any) {
 		const message = err?.message || 'Fish Audio WebSocket TTS failed';
@@ -196,6 +206,19 @@ async function runWebSocketSession(
 		console.error('[Fish Stream] Error:', message);
 		return json({ error: message }, { status });
 	}
+}
+
+function normalizeSampleRate(value: unknown): number | undefined {
+	if (value == null || value === '') return undefined;
+	const parsed =
+		typeof value === 'number'
+			? value
+			: typeof value === 'string'
+				? Number(value)
+				: NaN;
+	if (!Number.isFinite(parsed)) return undefined;
+	const rounded = Math.round(parsed);
+	return rounded > 0 ? rounded : undefined;
 }
 
 function splitIntoSentences(text: string): string[] {

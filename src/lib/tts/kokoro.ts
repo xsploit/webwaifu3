@@ -109,7 +109,7 @@ export async function initKokoroTTS(options: KokoroInitOptions = {}): Promise<vo
 
         tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
             dtype: options.dtype ?? 'q4',
-            device: options.device ?? null, // Auto-detect (WebGPU if available, else WASM)
+            device: options.device ?? 'webgpu',
             progress_callback: progressCallback,
         });
 

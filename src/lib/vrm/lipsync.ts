@@ -75,11 +75,15 @@ function getCleanPhonemes(raw: string): string[] {
 
 export function updateLipSync(vrm: VRM | null, ttsManager: TtsManager) {
 	if (!vrm || !vrm.expressionManager) return;
-	if (!ttsManager.currentAudio) return;
 
 	const manager = vrm.expressionManager;
+	const hasHtmlAudio = !!ttsManager.currentAudio;
+	const isHtmlAudioActive = hasHtmlAudio
+		? !ttsManager.currentAudio!.paused && !ttsManager.currentAudio!.ended
+		: false;
+	const isPlaybackActive = isHtmlAudioActive || ttsManager.isPlaying;
 
-	if (ttsManager.currentAudio.paused || ttsManager.currentAudio.ended) {
+	if (!isPlaybackActive) {
 		manager.setValue('aa', 0);
 		manager.setValue('ih', 0);
 		manager.setValue('ou', 0);
@@ -102,7 +106,11 @@ export function updateLipSync(vrm: VRM | null, ttsManager: TtsManager) {
 		return;
 	}
 
-	const currentTime = ttsManager.currentAudio.currentTime;
+	const currentTime = isHtmlAudioActive
+		? ttsManager.currentAudio!.currentTime
+		: ttsManager.audioContext && ttsManager.wordBoundaryStartTime !== null
+			? Math.max(0, ttsManager.audioContext.currentTime - ttsManager.wordBoundaryStartTime)
+			: 0;
 	let targetAa = 0,
 		targetIh = 0,
 		targetOu = 0,
