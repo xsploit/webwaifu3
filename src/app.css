@@ -73,6 +73,12 @@ textarea:focus {
   border-color: var(--c-text-accent);
 }
 
+/* API key inputs: use text type with CSS masking to avoid browser password managers */
+.input-secret {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
 /* ============================================
    Animations
    ============================================ */

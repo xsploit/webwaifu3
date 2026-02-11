@@ -323,7 +323,7 @@
 {#if showFishKey}
 	<div class="control-group">
 		<div class="control-label">Fish Audio API Key</div>
-		<input type="password" class="input-tech" bind:value={tts.fishApiKey} placeholder="Enter Fish Audio API key..." autocomplete="off" data-1p-ignore data-lpignore="true" />
+		<input type="text" class="input-tech input-secret" bind:value={tts.fishApiKey} placeholder="Enter Fish Audio API key..." autocomplete="off" data-1p-ignore data-lpignore="true" />
 	</div>
 
 	<div class="control-group">

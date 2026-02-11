@@ -92,7 +92,7 @@
 {#if needsApiKey}
 	<div class="control-group">
 		<div class="control-label">API Key</div>
-		<input type="password" class="input-tech" bind:value={llm.apiKey} placeholder="Enter API key..." autocomplete="off" data-1p-ignore data-lpignore="true" />
+		<input type="text" class="input-tech input-secret" bind:value={llm.apiKey} placeholder="Enter API key..." autocomplete="off" data-1p-ignore data-lpignore="true" />
 	</div>
 {/if}
 

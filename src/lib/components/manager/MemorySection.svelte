@@ -225,7 +225,7 @@
 					{#if summarizationProvider === 'openai' || summarizationProvider === 'openrouter'}
 						<div class="field-group">
 							<div class="field-label">API Key</div>
-							<input type="password" class="input-tech" bind:value={summarizationApiKey} placeholder="API key for summarization LLM..." autocomplete="off" data-1p-ignore data-lpignore="true" />
+							<input type="text" class="input-tech input-secret" bind:value={summarizationApiKey} placeholder="API key for summarization LLM..." autocomplete="off" data-1p-ignore data-lpignore="true" />
 						</div>
 					{/if}
 

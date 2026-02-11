@@ -39,8 +39,8 @@
 		{#if config.needsApiKey}
 			<div class="key-input-wrap">
 				<input
-					type={showKey ? 'text' : 'password'}
-					class="input-tech"
+					type="text"
+					class="input-tech{showKey ? '' : ' input-secret'}"
 					value={apiKey}
 					oninput={(e) => onkeychange?.((e.target as HTMLInputElement).value)}
 					placeholder="Enter API key..."
