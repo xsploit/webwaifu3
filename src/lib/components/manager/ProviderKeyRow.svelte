@@ -44,6 +44,9 @@
 					value={apiKey}
 					oninput={(e) => onkeychange?.((e.target as HTMLInputElement).value)}
 					placeholder="Enter API key..."
+					autocomplete="off"
+					data-1p-ignore
+					data-lpignore="true"
 				/>
 				<button class="btn-eye" onclick={() => showKey = !showKey} title={showKey ? 'Hide' : 'Show'}>
 					{showKey ? '◉' : '○'}

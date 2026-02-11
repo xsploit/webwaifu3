@@ -96,6 +96,11 @@
 	let fishSearchResults = $state<{ id: string; name: string; author?: string }[]>([]);
 	let fishSearching = $state(false);
 
+	// Restore saved Fish voices on init so they show without re-fetching
+	if (tts.fishSavedVoices.length > 0) {
+		fishModels = tts.fishSavedVoices.map(v => ({ id: v.id, name: v.name }));
+	}
+
 	async function loadFishModels() {
 		if (!tts.fishApiKey) return toast('Enter Fish Audio API key first (Keys page)');
 		fishLoading = true;
@@ -107,6 +112,8 @@
 			});
 			const data = await res.json();
 			fishModels = data.items || [];
+			// Persist to store so auto-save picks them up
+			tts.fishSavedVoices = fishModels.map((m: any) => ({ id: m.id, name: m.name }));
 			if (fishModels.length === 0) toast('No voice models found');
 			else toast(`Loaded ${fishModels.length} voice models`);
 		} catch (e: any) {
@@ -316,7 +323,7 @@
 {#if showFishKey}
 	<div class="control-group">
 		<div class="control-label">Fish Audio API Key</div>
-		<input type="password" class="input-tech" bind:value={tts.fishApiKey} placeholder="Enter Fish Audio API key..." />
+		<input type="password" class="input-tech" bind:value={tts.fishApiKey} placeholder="Enter Fish Audio API key..." autocomplete="off" data-1p-ignore data-lpignore="true" />
 	</div>
 
 	<div class="control-group">

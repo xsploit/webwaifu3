@@ -92,14 +92,14 @@
 {#if needsApiKey}
 	<div class="control-group">
 		<div class="control-label">API Key</div>
-		<input type="password" class="input-tech" bind:value={llm.apiKey} placeholder="Enter API key..." />
+		<input type="password" class="input-tech" bind:value={llm.apiKey} placeholder="Enter API key..." autocomplete="off" data-1p-ignore data-lpignore="true" />
 	</div>
 {/if}
 
 {#if isLocal}
 	<div class="control-group">
 		<div class="control-label">Endpoint</div>
-		<input type="text" class="input-tech" bind:value={llm.endpoint} placeholder={isOllama ? 'http://localhost:11434' : 'http://localhost:1234'} />
+		<input type="text" class="input-tech" bind:value={llm.endpoint} placeholder={isOllama ? 'http://localhost:11434' : 'http://localhost:1234'} autocomplete="off" />
 	</div>
 {/if}
 
