@@ -40,6 +40,8 @@ let chatVisible = $state(true);
 let chatInput = $state('');
 let isGenerating = $state(false);
 let conversationHistory = $state<{ role: string; content: string }[]>([]);
+let chatLogOpen = $state(false);
+let streamingText = $state('');
 
 export function getChat() {
 	return {
@@ -51,7 +53,12 @@ export function getChat() {
 		set isGenerating(v: boolean) { isGenerating = v; },
 		get history() { return conversationHistory; },
 		set history(v: { role: string; content: string }[]) { conversationHistory = v; },
-		toggleVisible() { chatVisible = !chatVisible; }
+		get logOpen() { return chatLogOpen; },
+		set logOpen(v: boolean) { chatLogOpen = v; },
+		get streamingText() { return streamingText; },
+		set streamingText(v: string) { streamingText = v; },
+		toggleVisible() { chatVisible = !chatVisible; },
+		toggleLog() { chatLogOpen = !chatLogOpen; }
 	};
 }
 

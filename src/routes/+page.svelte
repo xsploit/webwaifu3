@@ -5,6 +5,7 @@
 	import ChatBar from '$lib/components/ChatBar.svelte';
 	import MenuFab from '$lib/components/MenuFab.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import ChatLog from '$lib/components/ChatLog.svelte';
 	import SplashModal from '$lib/components/SplashModal.svelte';
 	import {
 		getChat,
@@ -134,7 +135,9 @@
 			client.kvCacheType = llmSettings.kvCacheType;
 
 			if (llmSettings.streaming) {
+				chat.streamingText = '';
 				client.onStreamChunk = (delta: string) => {
+					chat.streamingText += delta;
 					if (ttsSettings.enabled) {
 						ttsManager.enqueueStreamChunk(delta);
 					}
@@ -143,6 +146,7 @@
 
 			client.onResponseReceived = async (text: string) => {
 				console.log('[LLM Response]', text);
+				chat.streamingText = '';
 				chat.history = [...chat.history, { role: 'assistant', content: text }];
 				addLog(`AI: ${text.slice(0, 60)}...`, 'info');
 				void storage.saveCurrentConversation($state.snapshot(chat.history))
@@ -219,6 +223,7 @@
 			toast('Error: ' + err.message);
 			addLog('Error: ' + err.message, 'err');
 		} finally {
+			chat.streamingText = '';
 			chat.isGenerating = false;
 		}
 	}
@@ -791,6 +796,7 @@
 	<VrmCanvas bind:this={vrmCanvas} />
 	<div class="ui-layer">
 		<a href="/manager" class="mgr-btn" title="Waifu Manager">MGR</a>
+		<ChatLog />
 		<MenuFab />
 		<SettingsPanel />
 		<ChatBar onsend={handleSend} />
@@ -816,7 +822,8 @@
 	.mgr-btn {
 		position: absolute;
 		top: clamp(12px, 2vh, 24px);
-		left: clamp(12px, 2vw, 24px);
+		left: 50%;
+		transform: translateX(-50%);
 		pointer-events: auto;
 		z-index: 50;
 		font-family: var(--font-tech);
@@ -835,6 +842,6 @@
 	.mgr-btn:hover {
 		color: var(--c-text-accent);
 		border-color: var(--c-text-accent);
-		transform: scale(1.05);
+		transform: translateX(-50%) scale(1.05);
 	}
 </style>
