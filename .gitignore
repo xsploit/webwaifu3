@@ -25,6 +25,12 @@ vite.config.ts.timestamp-*
 # Excluded projects
 /Qwen3-TTS-streaming
 
+# Code review artifacts
+.code-review/findings-*.json
+
 # Claude Code
-.claude
+.claude/*
+!.claude/commands/
+!.claude/commands/**
+.claude/settings.local.json
 src/lib/vendor/edge-tts-universal.js

@@ -253,7 +253,7 @@ export class TtsManager {
 				void this._fishTextController.close().catch(() => {});
 				this._fishTextController = null;
 			}
-			this._finalizeFishStream();
+			void this._finalizeFishStream();
 		} else {
 			// Kokoro: just kick the queue — it'll drain naturally
 			if (!this.ttsWorkerRunning && this.textQueue.length > 0) this.initialize();
