@@ -1,10 +1,12 @@
 <script lang="ts">
-	let visible = $state(true);
+	const alreadyAccepted = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('ww3-splash-accepted') === '1';
+	let visible = $state(!alreadyAccepted);
 	let accepted = $state(false);
 
 	function dismiss() {
 		if (!accepted) return;
 		visible = false;
+		sessionStorage.setItem('ww3-splash-accepted', '1');
 		window.dispatchEvent(new CustomEvent('webwaifu3:splash-accepted'));
 	}
 </script>
