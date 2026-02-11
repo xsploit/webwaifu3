@@ -64,14 +64,26 @@
 		return null;
 	}
 
-	function getEffectiveSystemPrompt(): string {
-		const base = chars.current?.systemPrompt?.trim() ?? '';
-		const nickname = chars.current?.userNickname?.trim();
-		if (!nickname) return base;
+	const TTS_FORMATTING_RULES = [
+		'Never use emojis, emoticons, or unicode symbols in your responses.',
+		'Use proper punctuation and natural sentence structure.',
+		'Do not use asterisks for actions or emphasis (e.g. *giggles* or **bold**).',
+		'Do not use markdown formatting, bullet points, or numbered lists.',
+		'Write in flowing, spoken prose — your text will be read aloud by a TTS engine.',
+		'Avoid parenthetical asides, ellipsis chains, or excessive exclamation marks.',
+		'Keep responses concise — 1 to 3 short sentences unless asked for more detail.'
+	].join(' ');
 
-		const nicknameInstruction =
-			`The user's preferred name is "${nickname}". Address them by this name naturally when appropriate.`;
-		return base ? `${base}\n\n${nicknameInstruction}` : nicknameInstruction;
+	function getEffectiveSystemPrompt(): string {
+		const character = chars.current?.systemPrompt?.trim() ?? '';
+		const nickname = chars.current?.userNickname?.trim();
+
+		const parts: string[] = [];
+		if (character) parts.push(character);
+		if (nickname) parts.push(`The user's preferred name is "${nickname}". Address them by this name naturally when appropriate.`);
+		if (ttsSettings.enabled) parts.push(TTS_FORMATTING_RULES);
+
+		return parts.join('\n\n');
 	}
 
 	async function loadAndCommitVrm(url: string): Promise<boolean> {
