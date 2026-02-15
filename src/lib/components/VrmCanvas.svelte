@@ -138,13 +138,50 @@
 				}
 			}
 
+			// Touch pinch-to-zoom
+			let lastPinchDist = 0;
+
+			function onTouchStart(e: TouchEvent) {
+				if (e.touches.length === 2) {
+					const dx = e.touches[0].clientX - e.touches[1].clientX;
+					const dy = e.touches[0].clientY - e.touches[1].clientY;
+					lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+				}
+			}
+
+			function onTouchMove(e: TouchEvent) {
+				if (e.touches.length === 2 && vrmState.vrm && runtime) {
+					e.preventDefault();
+					const dx = e.touches[0].clientX - e.touches[1].clientX;
+					const dy = e.touches[0].clientY - e.touches[1].clientY;
+					const dist = Math.sqrt(dx * dx + dy * dy);
+					if (lastPinchDist > 0) {
+						const factor = dist / lastPinchDist;
+						const s = vrmState.vrm.scene.scale;
+						const newS = runtime.THREE.MathUtils.clamp(s.x * factor, scaleLimits.min, scaleLimits.max);
+						vrmState.vrm.scene.scale.set(newS, newS, 1.0);
+					}
+					lastPinchDist = dist;
+				}
+			}
+
+			function onTouchEnd(e: TouchEvent) {
+				if (e.touches.length < 2) lastPinchDist = 0;
+			}
+
 			animate();
 			window.addEventListener('resize', onResize);
 			canvasEl.addEventListener('wheel', onWheel, { passive: false });
+			canvasEl.addEventListener('touchstart', onTouchStart, { passive: true });
+			canvasEl.addEventListener('touchmove', onTouchMove, { passive: false });
+			canvasEl.addEventListener('touchend', onTouchEnd, { passive: true });
 
 			teardown = () => {
 				window.removeEventListener('resize', onResize);
 				canvasEl.removeEventListener('wheel', onWheel);
+				canvasEl.removeEventListener('touchstart', onTouchStart);
+				canvasEl.removeEventListener('touchmove', onTouchMove);
+				canvasEl.removeEventListener('touchend', onTouchEnd);
 
 				// Dispose VRM before renderer
 				if (vrmState.vrm && runtime) {

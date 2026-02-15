@@ -42,11 +42,28 @@
 	function getActiveTabModule(): Promise<TabModule> {
 		return getTabModule(getActiveTabId());
 	}
+
+	// Swipe-down-to-close on mobile
+	let touchStartY = 0;
+	let touchStartX = 0;
+
+	function handleTouchStart(e: TouchEvent) {
+		touchStartY = e.touches[0].clientY;
+		touchStartX = e.touches[0].clientX;
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		const deltaY = e.changedTouches[0].clientY - touchStartY;
+		const deltaX = Math.abs(e.changedTouches[0].clientX - touchStartX);
+		if (deltaY > 80 && deltaY > deltaX && touchStartY < 160) {
+			panel.open = false;
+		}
+	}
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div id="settings-panel" class:open={panel.open} onclick={(e) => e.stopPropagation()}>
+<div id="settings-panel" class:open={panel.open} onclick={(e) => e.stopPropagation()} ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
 	<svg class="svg-ui-bg panel-frame" preserveAspectRatio="none" viewBox="0 0 500 800">
 		<path d="M0,20 L20,0 L500,0 L500,780 L480,800 L0,800 Z" fill="var(--c-panel)" stroke="var(--c-border)" stroke-width="1" vector-effect="non-scaling-stroke"></path>
 		<line x1="20" y1="60" x2="480" y2="60" stroke="var(--c-border)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
@@ -180,8 +197,20 @@
 			top: 0;
 			right: 0;
 			max-height: 100vh;
+			max-height: 100dvh;
 			transform: none;
 			background: var(--c-panel);
+			padding-top: var(--safe-top, 0px);
+			padding-bottom: var(--safe-bottom, 0px);
+		}
+		.tabs-header {
+			padding-top: calc(var(--safe-top, 0px) + 16px);
+		}
+		.tab-btn {
+			min-width: max-content;
+			padding: 8px 14px;
+			font-size: 0.8rem;
+			min-height: 44px;
 		}
 	}
 </style>

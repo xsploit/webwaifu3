@@ -54,4 +54,12 @@
 	#menu-fab:hover::before { background: var(--c-text-accent); }
 	#menu-fab svg { width: 24px; height: 24px; transition: transform 0.4s var(--ease-tech); }
 	#menu-fab.active svg { transform: rotate(90deg); }
+	@media (max-width: 900px) {
+		#menu-fab {
+			top: calc(clamp(12px, 2vh, 24px) + var(--safe-top, 0px));
+			right: calc(clamp(12px, 2vw, 24px) + var(--safe-right, 0px));
+			min-width: 44px;
+			min-height: 44px;
+		}
+	}
 </style>

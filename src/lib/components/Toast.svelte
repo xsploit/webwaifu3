@@ -27,4 +27,11 @@
 		opacity: 1;
 		transform: translateX(-50%) translateY(0);
 	}
+	@media (max-width: 900px) {
+		#toast {
+			top: calc(24px + var(--safe-top, 0px));
+			max-width: 90vw;
+			font-size: 0.75rem;
+		}
+	}
 </style>

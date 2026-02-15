@@ -6,6 +6,7 @@
 	import MenuFab from '$lib/components/MenuFab.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import ChatLog from '$lib/components/ChatLog.svelte';
+	import SpeechBubble from '$lib/components/SpeechBubble.svelte';
 	import SplashModal from '$lib/components/SplashModal.svelte';
 	import {
 		getChat,
@@ -797,6 +798,7 @@
 	<div class="ui-layer">
 		<a href="/manager" class="mgr-btn" title="Waifu Manager">MGR</a>
 		<ChatLog />
+		<SpeechBubble />
 		<MenuFab />
 		<SettingsPanel />
 		<ChatBar onsend={handleSend} />
@@ -843,5 +845,10 @@
 		color: var(--c-text-accent);
 		border-color: var(--c-text-accent);
 		transform: translateX(-50%) scale(1.05);
+	}
+	@media (max-width: 900px) {
+		.mgr-btn {
+			top: calc(clamp(12px, 2vh, 24px) + var(--safe-top, 0px));
+		}
 	}
 </style>

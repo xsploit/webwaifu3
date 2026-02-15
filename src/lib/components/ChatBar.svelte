@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { getChat, getLlmSettings, getSttState, getMemoryState, toast, addLog } from '../stores/app.svelte.js';
 	import { getSttRecorder } from '../stt/recorder.js';
 	import { getMemoryManager } from '../memory/manager.js';
@@ -12,6 +13,25 @@
 	const memoryManager = getMemoryManager();
 
 	let textareaEl: HTMLTextAreaElement;
+	let keyboardOffset = $state(0);
+
+	onMount(() => {
+		const vv = window.visualViewport;
+		if (!vv) return;
+
+		function onViewportChange() {
+			if (!vv) return;
+			keyboardOffset = Math.max(0, window.innerHeight - vv.height);
+		}
+
+		vv.addEventListener('resize', onViewportChange);
+		vv.addEventListener('scroll', onViewportChange);
+
+		return () => {
+			vv.removeEventListener('resize', onViewportChange);
+			vv.removeEventListener('scroll', onViewportChange);
+		};
+	});
 
 	function ensureRecorderCallbacks() {
 		recorder.onModelReady = () => {
@@ -126,7 +146,7 @@
 	}
 </script>
 
-<div id="chat-container" class:visible={chat.visible}>
+<div id="chat-container" class:visible={chat.visible} style="--kb-offset: {keyboardOffset}px">
 	<div class="chat-meta">
 		<div style="display:flex; gap:16px;">
 			<button class="meta-item" class:active={stt.autoSend} title="Toggle Auto-send" onclick={() => stt.autoSend = !stt.autoSend}>
@@ -167,6 +187,7 @@
 				placeholder="Input command..."
 				onkeydown={handleKeydown}
 				oninput={handleInput}
+			onfocus={() => setTimeout(() => textareaEl?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 300)}
 			></textarea>
 			<div class="chat-actions">
 				<button
@@ -202,7 +223,7 @@
 		transition: all 0.3s var(--ease-tech);
 	}
 	#chat-container.visible {
-		transform: translateX(-50%) translateY(0);
+		transform: translateX(-50%) translateY(calc(var(--kb-offset, 0px) * -1));
 		opacity: 1;
 		visibility: visible;
 	}
@@ -304,8 +325,9 @@
 	.meta-item:hover { color: var(--text-main); }
 	.meta-item.active { color: var(--c-text-accent); text-shadow: 0 0 8px var(--c-text-accent); }
 	@media (max-width: 900px) {
-		#chat-container { width: 100%; bottom: 0; max-width: 100%; }
+		#chat-container { width: 100%; bottom: 0; max-width: 100%; padding-bottom: var(--safe-bottom, 0px); }
 		#chat-wrapper { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
 		#chat-inner { clip-path: none; }
+		.icon-btn { width: 44px; height: 44px; }
 	}
 </style>

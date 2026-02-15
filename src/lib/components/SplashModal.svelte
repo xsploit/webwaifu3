@@ -170,6 +170,20 @@
 	.splash-modal::-webkit-scrollbar { width: 4px; }
 	.splash-modal::-webkit-scrollbar-track { background: transparent; }
 	.splash-modal::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.2); }
+	@media (max-width: 640px) {
+		.splash-modal {
+			max-height: calc(100dvh - 40px);
+			margin: 20px;
+		}
+		.splash-dismiss {
+			padding: 16px;
+			font-size: 0.9rem;
+		}
+		.splash-ack-row input[type='checkbox'] {
+			width: 20px;
+			height: 20px;
+		}
+	}
 </style>
 
 

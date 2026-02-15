@@ -234,6 +234,23 @@
 		50% { border-left-color: #818cf8; }
 	}
 
+	@media (max-width: 900px) {
+		.log-toggle {
+			top: calc(clamp(12px, 2vh, 24px) + var(--safe-top, 0px));
+			left: calc(clamp(12px, 2vw, 24px) + var(--safe-left, 0px));
+			min-width: 44px;
+			min-height: 44px;
+		}
+		.log-panel {
+			padding-top: var(--safe-top, 0px);
+		}
+		.log-header {
+			padding-top: calc(var(--safe-top, 0px) + clamp(12px, 2vh, 24px) + clamp(40px, 7vw, 48px) + 12px);
+		}
+		.log-messages {
+			padding-bottom: calc(120px + var(--safe-bottom, 0px));
+		}
+	}
 	@media (max-width: 640px) {
 		.log-panel { width: 100vw; }
 	}
