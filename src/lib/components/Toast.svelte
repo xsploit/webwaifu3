@@ -1,9 +1,23 @@
 <script lang="ts">
 	import { getToast } from '../stores/app.svelte.js';
 	const toast = getToast();
+	let copied = $state(false);
+
+	async function copyToClipboard() {
+		if (!toast.message) return;
+		try {
+			await navigator.clipboard.writeText(toast.message.replace(/^\/\/ /, ''));
+			copied = true;
+			setTimeout(() => { copied = false; }, 1500);
+		} catch { /* clipboard not available */ }
+	}
 </script>
 
-<div id="toast" class:show={toast.visible}>{toast.message}</div>
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div id="toast" class:show={toast.visible} class:copied onclick={copyToClipboard}>
+	{copied ? '// Copied!' : toast.message}
+</div>
 
 <style>
 	#toast {
@@ -26,6 +40,12 @@
 	#toast.show {
 		opacity: 1;
 		transform: translateX(-50%) translateY(0);
+		pointer-events: auto;
+		cursor: pointer;
+	}
+	#toast.copied {
+		border-color: var(--success);
+		color: var(--success);
 	}
 	@media (max-width: 900px) {
 		#toast {

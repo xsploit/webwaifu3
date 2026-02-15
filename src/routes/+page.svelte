@@ -406,16 +406,24 @@
 				ttsManager.provider = ttsSettings.provider;
 				ttsManager.enableTts = ttsSettings.enabled;
 				if (ttsSettings.provider === 'kokoro') {
-					ttsManager.kokoroVoice = ttsSettings.kokoroVoice as any;
-					ttsManager.kokoroDtype = ttsSettings.kokoroDtype as any;
-					ttsManager.kokoroDevice =
-						ttsSettings.kokoroDevice === 'auto' ? null : ttsSettings.kokoroDevice as any;
-					// Auto-init Kokoro worker so TTS is ready on first message
-					if (!ttsManager.kokoroReadyInWorker && !ttsManager.ttsWorker) {
-						ttsManager.initKokoroInWorker({
-							dtype: ttsSettings.kokoroDtype as any,
-							device: ttsSettings.kokoroDevice === 'auto' ? null : ttsSettings.kokoroDevice as any
-						});
+					const isMobile = window.matchMedia('(max-width: 900px)').matches;
+					if (isMobile) {
+						// Kokoro WebGPU/WASM is too heavy for mobile — switch to Fish
+						ttsSettings.provider = 'fish';
+						ttsManager.provider = 'fish';
+						addLog('Kokoro disabled on mobile — switched to Fish Audio', 'warn');
+					} else {
+						ttsManager.kokoroVoice = ttsSettings.kokoroVoice as any;
+						ttsManager.kokoroDtype = ttsSettings.kokoroDtype as any;
+						ttsManager.kokoroDevice =
+							ttsSettings.kokoroDevice === 'auto' ? null : ttsSettings.kokoroDevice as any;
+						// Auto-init Kokoro worker so TTS is ready on first message
+						if (!ttsManager.kokoroReadyInWorker && !ttsManager.ttsWorker) {
+							ttsManager.initKokoroInWorker({
+								dtype: ttsSettings.kokoroDtype as any,
+								device: ttsSettings.kokoroDevice === 'auto' ? null : ttsSettings.kokoroDevice as any
+							});
+						}
 					}
 				}
 				if (ttsSettings.provider === 'fish') {

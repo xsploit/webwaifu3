@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getLogs } from '../../stores/app.svelte.js';
+	import { getLogs, toast } from '../../stores/app.svelte.js';
 
 	const logs = getLogs();
 	let logContainer: HTMLDivElement;
@@ -10,8 +10,22 @@
 			logContainer.scrollTop = logContainer.scrollHeight;
 		}
 	});
+
+	async function copyLogs() {
+		const text = logs.entries
+			.map(e => `[${e.time}] [${e.level}] ${e.message}`)
+			.join('\n');
+		if (!text) return;
+		try {
+			await navigator.clipboard.writeText(text);
+			toast('Logs copied to clipboard');
+		} catch {
+			toast('Failed to copy logs');
+		}
+	}
 </script>
 
+<button class="btn-copy" onclick={copyLogs} disabled={logs.entries.length === 0}>Copy All Logs</button>
 <div class="log-container" bind:this={logContainer}>
 	{#each logs.entries as entry}
 		<div class="log-entry {entry.level}">
@@ -55,4 +69,20 @@
 		text-align: center;
 		padding: 40px 0;
 	}
+	.btn-copy {
+		width: 100%;
+		padding: 8px;
+		margin-bottom: 8px;
+		background: transparent;
+		border: 1px solid var(--c-border);
+		color: var(--text-muted);
+		font-family: var(--font-tech);
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	.btn-copy:hover { border-color: var(--c-text-accent); color: var(--c-text-accent); }
+	.btn-copy:disabled { opacity: 0.3; cursor: not-allowed; }
 </style>

@@ -83,6 +83,11 @@
 		{ value: 'auto', label: 'Auto Detect' }
 	];
 
+	let isMobile = $state(false);
+	if (typeof window !== 'undefined') {
+		isMobile = window.matchMedia('(max-width: 900px)').matches;
+	}
+
 	let showFishKey = $derived(tts.provider === 'fish');
 	let showKokoroOptions = $derived(tts.provider === 'kokoro');
 
@@ -177,6 +182,11 @@
 
 	function onProviderChange(e: Event) {
 		const newProvider = (e.target as HTMLSelectElement).value as 'fish' | 'kokoro';
+		if (newProvider === 'kokoro' && isMobile) {
+			toast('Kokoro is not supported on mobile — use Fish Audio instead');
+			(e.target as HTMLSelectElement).value = tts.provider;
+			return;
+		}
 		tts.provider = newProvider;
 	}
 
@@ -266,9 +276,12 @@
 <div class="control-group">
 	<div class="control-label">TTS Engine</div>
 	<select class="select-tech" onchange={onProviderChange}>
-		<option value="kokoro" selected={tts.provider === 'kokoro'}>Kokoro (Local/WebGPU)</option>
+		<option value="kokoro" selected={tts.provider === 'kokoro'} disabled={isMobile}>Kokoro (Local/WebGPU){isMobile ? ' — N/A on mobile' : ''}</option>
 		<option value="fish" selected={tts.provider === 'fish'}>Fish Audio (Cloud)</option>
 	</select>
+	{#if isMobile}
+		<small class="hint" style="color: var(--danger);">Kokoro requires WebGPU — not available on mobile. Use Fish Audio.</small>
+	{/if}
 </div>
 
 {#if showKokoroOptions}
