@@ -281,6 +281,37 @@ export function getLogs() {
 	return { get entries() { return logs; } };
 }
 
+// Intercept console.error/warn and unhandled exceptions into the log system
+if (typeof window !== 'undefined') {
+	const _origError = console.error;
+	const _origWarn = console.warn;
+
+	console.error = (...args: any[]) => {
+		_origError.apply(console, args);
+		const msg = args.map(a => {
+			if (a instanceof Error) return `${a.message}`;
+			if (typeof a === 'object') try { return JSON.stringify(a); } catch { return String(a); }
+			return String(a);
+		}).join(' ');
+		addLog(msg.slice(0, 500), 'err');
+	};
+
+	console.warn = (...args: any[]) => {
+		_origWarn.apply(console, args);
+		const msg = args.map(a => typeof a === 'object' ? (a instanceof Error ? a.message : JSON.stringify(a)) : String(a)).join(' ');
+		addLog(msg.slice(0, 500), 'warn');
+	};
+
+	window.addEventListener('error', (e) => {
+		addLog(`Uncaught: ${e.message} (${e.filename}:${e.lineno})`, 'err');
+	});
+
+	window.addEventListener('unhandledrejection', (e) => {
+		const reason = e.reason instanceof Error ? e.reason.message : String(e.reason);
+		addLog(`Unhandled rejection: ${reason}`, 'err');
+	});
+}
+
 // Model list for LLM provider
 let modelList = $state<{ id: string; name: string }[]>([]);
 
