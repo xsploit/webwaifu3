@@ -110,6 +110,11 @@
 		chat.history = [...chat.history, { role: 'user', content: message }];
 		chat.isGenerating = true;
 		addLog(`User: ${message.slice(0, 60)}...`, 'info');
+		addLog(`LLM: ${llmSettings.provider}/${llmSettings.model} @ ${llmSettings.endpoint}`, 'info');
+		if (!llmSettings.model) addLog('No model selected!', 'err');
+		if (!llmSettings.apiKey && (llmSettings.provider === 'openai' || llmSettings.provider === 'openrouter')) {
+			addLog(`No API key set for ${llmSettings.provider}!`, 'err');
+		}
 		let turnConversationId: number | null = null;
 
 		try {

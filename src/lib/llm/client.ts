@@ -160,10 +160,13 @@ export class LlmClient {
 		opts: { signal?: AbortSignal; collectFullResponse?: boolean; contextMessages?: ChatMessage[] } = {}
 	) {
 		const { signal, collectFullResponse = true, contextMessages } = opts;
+		console.log(`[LLM] Generating: provider=${this.provider} model=${this.model} endpoint=${this.endpoint}`);
 		const aiSdk = await loadAiSdkRuntime();
 		const model = this._resolveModel(aiSdk);
 		const messages: ChatMessage[] = contextMessages || this._buildMessages(userMessage);
+		console.log(`[LLM] Sending ${messages.length} messages, temp=${this.temperature}, maxTokens=${this.maxTokens}`);
 		let streamedText = '';
+		let chunkCount = 0;
 
 		try {
 			const result = await aiSdk.streamText({
@@ -176,17 +179,35 @@ export class LlmClient {
 
 			for await (const delta of result.textStream) {
 				if (!delta) continue;
+				chunkCount++;
 				if (collectFullResponse) streamedText += delta;
 				onStreamToken?.(delta);
 				this.onStreamChunk?.(delta);
 			}
 
+			console.log(`[LLM] Stream done: ${chunkCount} chunks, ${streamedText.length} chars`);
+
 			const finalizedText = (await result.text) || streamedText || '';
 			const fullResponse = collectFullResponse ? finalizedText || streamedText : finalizedText;
 
+			if (!fullResponse) {
+				console.error('[LLM] Empty response from provider — no output generated');
+			}
+
 			this.onResponseReceived?.(fullResponse);
 			return fullResponse;
-		} catch (error) {
+		} catch (error: any) {
+			console.error(`[LLM] Request failed: ${error?.message || error}`, error);
+			// Try to extract API error body if available
+			if (error?.responseBody) {
+				console.error('[LLM] Response body:', error.responseBody);
+			}
+			if (error?.statusCode) {
+				console.error(`[LLM] Status code: ${error.statusCode}`);
+			}
+			if (error?.cause) {
+				console.error('[LLM] Cause:', error.cause?.message || error.cause);
+			}
 			this.onError?.(error as Error);
 			throw error;
 		}
