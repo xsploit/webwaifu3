@@ -309,6 +309,15 @@ if (typeof window !== 'undefined') {
 	window.addEventListener('unhandledrejection', (e) => {
 		const reason = e.reason instanceof Error ? e.reason.message : String(e.reason);
 		addLog(`Unhandled rejection: ${reason}`, 'err');
+		// Detect stale Vite chunks (404 on JS files after deploy)
+		if (reason.includes('Failed to fetch dynamically imported module') || reason.includes('error loading dynamically imported module')) {
+			toast('App updated — reload needed', 8000);
+		}
+	});
+
+	// Also catch Vite's preload errors (stale chunks after deploy)
+	window.addEventListener('vite:preloadError', () => {
+		toast('App updated — reload needed', 8000);
 	});
 }
 

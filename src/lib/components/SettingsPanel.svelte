@@ -27,10 +27,16 @@
 	};
 	const tabCache = new Map<TabId, Promise<TabModule>>();
 
+	let retryCount = $state(0);
+
 	function getTabModule(tabId: TabId): Promise<TabModule> {
 		const cached = tabCache.get(tabId);
 		if (cached) return cached;
-		const loaded = tabLoaders[tabId]();
+		const loaded = tabLoaders[tabId]().catch((err) => {
+			// Clear cache so next attempt retries the import
+			tabCache.delete(tabId);
+			throw err;
+		});
 		tabCache.set(tabId, loaded);
 		return loaded;
 	}
@@ -40,7 +46,14 @@
 	}
 
 	function getActiveTabModule(): Promise<TabModule> {
+		retryCount; // subscribe to retries
 		return getTabModule(getActiveTabId());
+	}
+
+	function retryTab() {
+		const tabId = getActiveTabId();
+		tabCache.delete(tabId);
+		retryCount++;
 	}
 
 	// Swipe-down-to-close on mobile
@@ -86,8 +99,13 @@
 			<div class="tab-loading">Loading tab...</div>
 		{:then tabModule}
 			<svelte:component this={tabModule.default} />
-		{:catch}
-			<div class="tab-error">Failed to load tab.</div>
+		{:catch err}
+			<div class="tab-error">
+				Failed to load tab.
+				<small class="tab-error-detail">{err?.message || 'Unknown error'}</small>
+				<button class="tab-retry-btn" onclick={retryTab}>Retry</button>
+				<button class="tab-retry-btn" onclick={() => location.reload()}>Reload Page</button>
+			</div>
 		{/await}
 	</div>
 </div>
@@ -189,7 +207,20 @@
 		padding: 12px;
 		border: 1px dashed var(--c-border);
 	}
-	.tab-error { color: var(--danger); }
+	.tab-error { color: var(--danger); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+	.tab-error-detail { color: var(--text-dim); font-size: 0.65rem; word-break: break-all; }
+	.tab-retry-btn {
+		padding: 8px 16px;
+		background: transparent;
+		border: 1px solid var(--danger);
+		color: var(--danger);
+		font-family: var(--font-tech);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	.tab-retry-btn:hover { background: var(--danger); color: #000; }
 	@media (max-width: 900px) {
 		#settings-panel {
 			width: 100%;
