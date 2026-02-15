@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { getChat } from '../stores/app.svelte.js';
+	import { getChat, getLogs } from '../stores/app.svelte.js';
 	import { tick } from 'svelte';
 
 	const chat = getChat();
+	const logs = getLogs();
 	let scrollEl: HTMLDivElement;
 	let wasAtBottom = true;
+	let showLogs = $state(false);
 
 	function isScrolledToBottom() {
 		if (!scrollEl) return true;
@@ -16,13 +18,20 @@
 	}
 
 	$effect(() => {
-		// Track history length and streaming text to auto-scroll
+		// Track history length, streaming text, and logs to auto-scroll
 		chat.history.length;
 		chat.streamingText;
+		if (showLogs) logs.entries.length;
 		if (wasAtBottom) {
 			tick().then(scrollToBottom);
 		}
 	});
+
+	async function copyMessage(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch { /* clipboard not available */ }
+	}
 
 	function handleScroll() {
 		wasAtBottom = isScrolledToBottom();
@@ -45,7 +54,10 @@
 <div class="log-panel" class:open={chat.logOpen}>
 	<div class="log-header">
 		<span class="log-title">// CHAT LOG</span>
-		<span class="log-count">{chat.history.length} msgs</span>
+		<div class="log-header-right">
+			<button class="log-btn" class:active={showLogs} title="Show system logs" onclick={() => showLogs = !showLogs}>LOG</button>
+			<span class="log-count">{chat.history.length} msgs</span>
+		</div>
 	</div>
 	<div class="log-deco"></div>
 	<div class="log-messages" bind:this={scrollEl} onscroll={handleScroll}>
@@ -53,7 +65,9 @@
 			<div class="log-empty">No messages yet.</div>
 		{/if}
 		{#each chat.history as msg, i (i)}
-			<div class="log-msg" class:user={msg.role === 'user'} class:assistant={msg.role === 'assistant'} class:system={msg.role === 'system'}>
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="log-msg" class:user={msg.role === 'user'} class:assistant={msg.role === 'assistant'} class:system={msg.role === 'system'} onclick={() => copyMessage(msg.content)}>
 				<span class="msg-role">{msg.role === 'user' ? 'YOU' : msg.role === 'assistant' ? 'AI' : 'SYS'}</span>
 				<span class="msg-text">{msg.content}</span>
 			</div>
@@ -63,6 +77,17 @@
 				<span class="msg-role">AI</span>
 				<span class="msg-text">{chat.streamingText}<span class="cursor-blink">_</span></span>
 			</div>
+		{/if}
+		{#if showLogs}
+			<div class="log-divider">// SYSTEM LOGS</div>
+			{#each logs.entries as entry, i (i)}
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div class="log-msg log-entry" class:log-warn={entry.level === 'warn'} class:log-err={entry.level === 'err'} onclick={() => copyMessage(`[${entry.time}] ${entry.message}`)}>
+					<span class="msg-role">{entry.level === 'err' ? 'ERR' : entry.level === 'warn' ? 'WRN' : 'LOG'}</span>
+					<span class="msg-text log-text"><span class="log-time">{entry.time}</span> {entry.message}</span>
+				</div>
+			{/each}
 		{/if}
 	</div>
 </div>
@@ -142,12 +167,30 @@
 		color: var(--c-text-accent);
 		text-transform: uppercase;
 	}
+	.log-header-right {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
 	.log-count {
 		font-family: var(--font-tech);
 		font-size: 0.65rem;
 		color: var(--text-dim);
 		letter-spacing: 0.1em;
 	}
+	.log-btn {
+		padding: 3px 8px;
+		background: transparent;
+		border: 1px solid var(--c-border);
+		color: var(--text-dim);
+		font-family: var(--font-tech);
+		font-size: 0.6rem;
+		letter-spacing: 0.1em;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	.log-btn:hover { border-color: var(--c-text-accent); color: var(--text-main); }
+	.log-btn.active { border-color: var(--c-text-accent); color: var(--c-text-accent); background: rgba(56,189,248,0.1); }
 
 	.log-deco {
 		height: 1px;
@@ -219,6 +262,32 @@
 		word-break: break-word;
 		white-space: pre-wrap;
 	}
+
+	.log-msg { cursor: pointer; }
+	.log-msg:active { opacity: 0.7; }
+
+	.log-divider {
+		font-family: var(--font-tech);
+		font-size: 0.6rem;
+		color: var(--text-dim);
+		letter-spacing: 0.15em;
+		text-align: center;
+		padding: 8px 0 4px;
+		border-top: 1px solid var(--c-border);
+		margin-top: 4px;
+	}
+
+	.log-entry {
+		border-left-color: var(--text-dim);
+		opacity: 0.7;
+	}
+	.log-entry .msg-role { color: var(--text-dim); }
+	.log-entry.log-warn { border-left-color: #f59e0b; }
+	.log-entry.log-warn .msg-role { color: #f59e0b; }
+	.log-entry.log-err { border-left-color: var(--danger); opacity: 1; }
+	.log-entry.log-err .msg-role { color: var(--danger); }
+	.log-text { font-size: 0.72rem; }
+	.log-time { color: var(--text-dim); margin-right: 4px; }
 
 	.cursor-blink {
 		color: #22d3ee;
